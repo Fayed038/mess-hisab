@@ -149,6 +149,18 @@
     100%{transform:translate(-50%,-10px) scale(0.92) rotate(-2deg); opacity:0;}
   }
   #voiceToggle{margin-left:4px;}
+  .modal-backdrop{
+    position:fixed; inset:0; background:rgba(43,33,64,0.55); z-index:300;
+    display:flex; align-items:center; justify-content:center; padding:16px;
+  }
+  .modal-card{
+    background:var(--paper-card); border-radius:18px; padding:20px; max-width:380px; width:100%;
+    box-shadow:0 12px 40px rgba(0,0,0,0.35); border-top:5px solid var(--purple);
+  }
+  .modal-card h3{font-size:17px; margin-bottom:8px;}
+  .modal-card .field{margin-bottom:10px;}
+  .modal-card input{font-size:18px; letter-spacing:2px;}
+  .modal-card .row{gap:8px;}
   .mealslot{border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:12px; background:#fff;}
   .mealslot .headrow{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
   .checklist{display:grid; grid-template-columns:repeat(2,1fr); gap:4px;}
@@ -177,6 +189,7 @@
 <main id="mainArea"></main>
 <div class="toast" id="toast"></div>
 <div class="funnypop" id="funnypop"><span class="fp-emoji" id="fpEmoji"></span><span class="fp-text" id="fpText"></span></div>
+<div id="modalRoot"></div>
 
 <script type="module">
 /* ---------------- Firebase setup ---------------- */
@@ -573,9 +586,133 @@ function buildUserSelect(){
     state.members.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
   sel.value = state.currentUser || '';
   sel.onchange = async ()=>{
-    state.currentUser = sel.value;
-    await sset('lastUser', state.currentUser, false);
-    if(state.currentUser){ showFunnyPop('welcome'); buildNav(); render(); }
+    const chosenId = sel.value;
+    if(!chosenId){
+      state.currentUser = '';
+      await sset('lastUser', '', false);
+      buildNav(); render();
+      return;
+    }
+    const mem = state.members.find(x=>x.id===chosenId);
+    const revert = ()=>{ sel.value = state.currentUser || ''; };
+    const confirmLogin = async ()=>{
+      state.currentUser = mem.id;
+      await sset('lastUser', state.currentUser, false);
+      showFunnyPop('welcome');
+      buildNav(); render();
+    };
+    if(!mem.pin){
+      openPinSetupModal(mem, confirmLogin, revert);
+    } else {
+      openPinVerifyModal(mem, confirmLogin, revert);
+    }
+  };
+}
+
+/* ---------------- PIN modals ---------------- */
+function modalRoot(){ return document.getElementById('modalRoot'); }
+function closeModal(){ modalRoot().innerHTML=''; }
+
+function openPinSetupModal(mem, onDone, onCancel){
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>👋 ${escapeHtml(mem.name)}, প্রথমবার — একটা PIN সেট করো</h3>
+      <p class="muted">এই ৪-সংখ্যার PIN দিয়ে পরে নিজের নাম সিলেক্ট করার সময় নিশ্চিত করতে হবে, যাতে অন্য কেউ তোমার নামে ঢুকতে না পারে।</p>
+      <div class="field"><label>নতুন PIN (৪ সংখ্যা)</label><input id="setupPin" inputmode="numeric" maxlength="4" placeholder="১২৩৪"></div>
+      <div class="field"><label>একটা সিকিউরিটি প্রশ্ন লিখো (PIN ভুলে গেলে কাজে লাগবে)</label><input id="setupQ" placeholder="যেমন: তোমার গ্রামের নাম?"></div>
+      <div class="field"><label>এর উত্তর</label><input id="setupA" placeholder="উত্তর" style="letter-spacing:normal; font-size:14px;"></div>
+      <div class="row">
+        <button class="btn" id="setupPinBtn">সেভ করে ঢুকো</button>
+        <button class="btn ghost" id="setupCancelBtn">বাতিল</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('setupCancelBtn').onclick = ()=>{ closeModal(); onCancel(); };
+  document.getElementById('setupPinBtn').onclick = async ()=>{
+    const pin = document.getElementById('setupPin').value.trim();
+    const q = document.getElementById('setupQ').value.trim();
+    const a = document.getElementById('setupA').value.trim();
+    if(!/^\d{4}$/.test(pin)){ showToast('৪ সংখ্যার PIN দাও'); return; }
+    if(!q || !a){ showToast('প্রশ্ন ও উত্তর লিখো'); return; }
+    mem.pin = pin; mem.secQ = q; mem.secA = a;
+    await sset('members', state.members, true);
+    closeModal();
+    onDone();
+  };
+}
+
+function openPinVerifyModal(mem, onSuccess, onCancel){
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>🔒 ${escapeHtml(mem.name)}-এর PIN দাও</h3>
+      <div class="field"><input id="verifyPin" inputmode="numeric" maxlength="4" placeholder="৪-সংখ্যার PIN"></div>
+      <p id="verifyErr" class="muted" style="color:var(--red-dark); display:none;">ভুল PIN, আবার চেষ্টা করো</p>
+      <div class="row">
+        <button class="btn" id="verifyBtn">ঢুকো</button>
+        <button class="btn ghost" id="verifyCancelBtn">বাতিল</button>
+      </div>
+      <p style="margin-top:10px;"><a href="#" id="forgotPinLink" class="smslink">PIN ভুলে গেছি</a></p>
+    </div>
+  </div>`;
+  document.getElementById('verifyCancelBtn').onclick = ()=>{ closeModal(); onCancel(); };
+  const tryVerify = ()=>{
+    const val = document.getElementById('verifyPin').value.trim();
+    if(val === mem.pin){ closeModal(); onSuccess(); }
+    else{ document.getElementById('verifyErr').style.display='block'; }
+  };
+  document.getElementById('verifyBtn').onclick = tryVerify;
+  document.getElementById('verifyPin').onkeydown = (e)=>{ if(e.key==='Enter') tryVerify(); };
+  document.getElementById('verifyPin').focus();
+  document.getElementById('forgotPinLink').onclick = (e)=>{ e.preventDefault(); openForgotModal(mem, onSuccess, onCancel); };
+}
+
+function openForgotModal(mem, onSuccess, onCancel){
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>🔑 ${escapeHtml(mem.name)} — PIN রিসেট</h3>
+      <p class="muted">প্রশ্ন: <strong>${escapeHtml(mem.secQ||'—')}</strong></p>
+      <div class="field"><label>উত্তর দাও</label><input id="forgotAns" style="letter-spacing:normal; font-size:14px;"></div>
+      <p id="forgotErr" class="muted" style="color:var(--red-dark); display:none;">উত্তর মিলছে না</p>
+      <div class="row">
+        <button class="btn" id="forgotCheckBtn">যাচাই করো</button>
+        <button class="btn ghost" id="forgotCancelBtn">বাতিল</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('forgotCancelBtn').onclick = ()=>{ closeModal(); onCancel(); };
+  document.getElementById('forgotCheckBtn').onclick = ()=>{
+    const ans = document.getElementById('forgotAns').value.trim().toLowerCase();
+    if(ans !== String(mem.secA||'').trim().toLowerCase()){
+      document.getElementById('forgotErr').style.display='block'; return;
+    }
+    openNewPinModal(mem, onSuccess, onCancel);
+  };
+}
+
+function openNewPinModal(mem, onSuccess, onCancel){
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>🔑 ${escapeHtml(mem.name)} — নতুন PIN সেট করো</h3>
+      <div class="field"><label>নতুন PIN (৪ সংখ্যা)</label><input id="newPin" inputmode="numeric" maxlength="4"></div>
+      <div class="row">
+        <button class="btn" id="newPinBtn">সেভ করে ঢুকো</button>
+        <button class="btn ghost" id="newPinCancelBtn">বাতিল</button>
+      </div>
+    </div>
+  </div>`;
+  document.getElementById('newPinCancelBtn').onclick = ()=>{ closeModal(); onCancel(); };
+  document.getElementById('newPinBtn').onclick = async ()=>{
+    const newPin = document.getElementById('newPin').value.trim();
+    if(!/^\d{4}$/.test(newPin)){ showToast('৪ সংখ্যার PIN দাও'); return; }
+    mem.pin = newPin;
+    await sset('members', state.members, true);
+    await addLog('PIN রিসেট', mem.name+' নিজের PIN রিসেট করলো');
+    closeModal();
+    onSuccess();
   };
 }
 function currentUserName(){
