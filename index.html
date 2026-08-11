@@ -925,8 +925,8 @@ function renderBazar(){
       <div class="field"><label>কে বাজার করেছে</label>
         <select id="bzMember">${state.members.map(mm=>`<option value="${mm.id}">${escapeHtml(mm.name)}</option>`).join('')}</select>
       </div>
-      <div class="field"><label>তারিখ</label><input type="date" id="bzDate" value="${todayStr()}"></div>
-      <div class="field"><label>পরিমাণ (৳)</label><input type="number" id="bzAmount" placeholder="0"></div>
+      <div class="field"><label>তারিখ <span class="muted" id="bzRangeLabel" style="font-size:11px"></span></label><input type="date" id="bzDate" value="${todayStr()}"></div>
+      <div class="field"><label>পরিমাণ (৳) <span class="muted" style="font-size:11px">— পুরো পালার মোট খরচ</span></label><input type="number" id="bzAmount" placeholder="0"></div>
       <div class="field" style="flex:2"><label>নোট (কি বাজার হলো)</label><input id="bzNote" placeholder="যেমন: মাছ, সবজি"></div>
       <button class="btn" id="addBazarBtn">যোগ করুন</button>
     </div>`}
@@ -979,19 +979,25 @@ function renderBazar(){
   });
   const addBtn = document.getElementById('addBazarBtn');
   if(addBtn){
-    document.getElementById('bzMember').onchange = (e)=>{
-      const memberId = e.target.value;
+    const bzMemberSel = document.getElementById('bzMember');
+    const updateBzRange = ()=>{
+      const memberId = bzMemberSel.value;
       const dim2 = daysInMonth(state.monthKey);
       const todayDay = (state.monthKey===currentMonthKey()) ? new Date().getDate() : null;
       const assns = m.bazarRotation.assignments.filter(a=>a.memberId===memberId);
-      if(assns.length===0) return;
+      const rangeLabel = document.getElementById('bzRangeLabel');
+      if(assns.length===0){ rangeLabel.textContent=''; return; }
       let pick = assns.find(a=> todayDay!==null && todayDay>=a.startDay && todayDay<=a.endDay);
       if(!pick) pick = assns[0];
       const [y,mo] = state.monthKey.split('-').map(Number);
-      const day = (todayDay!==null && pick.startDay<=todayDay && todayDay<=pick.endDay) ? todayDay : pick.startDay;
-      const dateStr = y+'-'+String(mo).padStart(2,'0')+'-'+String(Math.min(day,dim2)).padStart(2,'0');
+      const endDay = Math.min(pick.endDay, dim2);
+      const dateStr = y+'-'+String(mo).padStart(2,'0')+'-'+String(endDay).padStart(2,'0');
       document.getElementById('bzDate').value = dateStr;
+      const days = pick.endDay - pick.startDay + 1;
+      rangeLabel.textContent = '(পালা: '+pick.startDay+'–'+pick.endDay+', '+days+' দিন — মোট খরচ শেষ দিনে যোগ হবে)';
     };
+    bzMemberSel.onchange = updateBzRange;
+    updateBzRange();
     addBtn.onclick = async ()=>{
       const memberId = document.getElementById('bzMember').value;
       const date = document.getElementById('bzDate').value || todayStr();
