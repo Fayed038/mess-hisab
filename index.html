@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>মেস হিসাব খাতা</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8B5CF6">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mess Hisab">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Sans+Bengali:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <style>
@@ -364,6 +371,12 @@ const FUNNY_QUOTES = {
     {emoji:'✅', text:'হইছে!! কাজ শেষ!!'},
     {emoji:'🎯', text:'একদম টাইট!! হয়ে গেছে!!'},
     {emoji:'😎', text:'ওকে!! সেভ হয়ে গেলো!!'}
+  ],
+  welcome: [
+    {emoji:'👋', text:'আরে!! তুমি আইসা গেছো!!'},
+    {emoji:'🏠', text:'ঐ!! মেসে স্বাগতম!!'},
+    {emoji:'😄', text:'কী খবর!! হিসাব দেখতে আসছো নাকি!!'},
+    {emoji:'🔔', text:'হালার পো!! ঢুকছোই যখন হিসাবটা দেইখা যা!!'}
   ]
 };
 function funnyCategory(action){
@@ -374,21 +387,40 @@ function funnyCategory(action){
   return 'general';
 }
 function isVoiceOn(){ return localStorage.getItem('mess:voiceOn') !== '0'; }
+let __voiceCache = [];
+function loadVoices(){
+  __voiceCache = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
+  return __voiceCache;
+}
+if('speechSynthesis' in window){
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  const unlockVoice = ()=>{ try{ window.speechSynthesis.resume(); }catch(e){} document.removeEventListener('click', unlockVoice); document.removeEventListener('touchstart', unlockVoice); };
+  document.addEventListener('click', unlockVoice, {once:true});
+  document.addEventListener('touchstart', unlockVoice, {once:true});
+}
+function pickBnVoice(){
+  const voices = __voiceCache.length ? __voiceCache : loadVoices();
+  return voices.find(v=>v.lang && v.lang.toLowerCase().startsWith('bn')) || null;
+}
 function speakBn(text){
   if(!isVoiceOn() || !('speechSynthesis' in window)) return;
   try{
+    window.speechSynthesis.resume();
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    const voices = window.speechSynthesis.getVoices();
-    const bnVoice = voices.find(v=>v.lang && v.lang.toLowerCase().startsWith('bn'));
-    if(bnVoice) u.voice = bnVoice;
-    u.lang = bnVoice ? bnVoice.lang : 'bn-BD';
-    u.rate = 0.95; u.pitch = 1.05;
-    window.speechSynthesis.speak(u);
+    const bnVoice = pickBnVoice();
+    if(bnVoice){ u.voice = bnVoice; u.lang = bnVoice.lang; }
+    else { u.lang = 'bn-BD'; } // best effort even if this device has no installed Bangla voice
+    u.rate = 0.95; u.pitch = 1.05; u.volume = 1;
+    setTimeout(()=>window.speechSynthesis.speak(u), 30);
   }catch(e){ console.warn('voice failed', e); }
 }
 function triggerFunnyPop(action){
   const cat = funnyCategory(action);
+  showFunnyPop(cat);
+}
+function showFunnyPop(cat){
   const list = FUNNY_QUOTES[cat] || FUNNY_QUOTES.general;
   const q = list[Math.floor(Math.random()*list.length)];
   const el = document.getElementById('funnypop');
@@ -511,6 +543,7 @@ async function init(){
   buildUserSelect();
   buildNav();
   render();
+  if(state.currentUser){ setTimeout(()=>showFunnyPop('welcome'), 500); }
   document.getElementById('langToggle').textContent = state.lang==='bn' ? 'EN' : 'বাং';
   document.getElementById('langToggle').onclick = async ()=>{
     state.lang = state.lang==='bn' ? 'en' : 'bn';
@@ -542,12 +575,14 @@ function buildUserSelect(){
   sel.onchange = async ()=>{
     state.currentUser = sel.value;
     await sset('lastUser', state.currentUser, false);
+    if(state.currentUser){ showFunnyPop('welcome'); buildNav(); render(); }
   };
 }
 function currentUserName(){
   const m = state.members.find(x=>x.id===state.currentUser);
   return m ? m.name : (state.currentUser || 'অজানা');
 }
+function isFayedUser(){ return currentUserName()==='Fayed'; }
 
 const TABS = [
   ['dashboard','ড্যাশবোর্ড','🏠'],
@@ -561,7 +596,9 @@ const TABS = [
 ];
 function buildNav(){
   const nav=document.getElementById('tabNav');
-  nav.innerHTML = TABS.map(([id,label,emoji])=>`<button data-tab="${id}" class="${state.activeTab===id?'active':''}"><span aria-hidden="true">${emoji}</span> ${label}</button>`).join('');
+  const tabs = TABS.filter(([id])=> id!=='log' || isFayedUser());
+  nav.innerHTML = tabs.map(([id,label,emoji])=>`<button data-tab="${id}" class="${state.activeTab===id?'active':''}"><span aria-hidden="true">${emoji}</span> ${label}</button>`).join('');
+  if(state.activeTab==='log' && !isFayedUser()) state.activeTab='dashboard';
   nav.querySelectorAll('button').forEach(b=>{
     b.onclick = ()=>{ state.activeTab=b.dataset.tab; buildNav(); render(); };
   });
@@ -788,6 +825,7 @@ function renderRent(){
       <button class="btn ghost small" id="saveDefaultBtn">সেভ করুন</button>
     </div>
     <hr class="divider">
+    ${isFayedUser() ? `
     <div class="field">
       <label>যারা "পরিশোধ/বাকি" টিক দিতে পারবে (রেন্ট অ্যাডমিন / ম্যানেজার)</label>
       <div class="checklist">
@@ -800,9 +838,9 @@ function renderRent(){
           </label>`;
         }).join('')}
       </div>
-      <p class="muted" style="margin-top:6px; font-size:12.5px;">Fayed সবসময় অ্যাডমিন থাকবে (বাদ দেওয়া যাবে না)। বাকিদের টিক দিয়ে অ্যাডমিন/ম্যানেজার হিসেবে যোগ করতে পারো।</p>
-    </div>
-    ${!isAdmin ? `<p class="muted" style="margin-top:6px">তুমি এখন অ্যাডমিন লিস্টে নেই, তাই টিক দিতে পারবে না — শুধু দেখতে পারবে।</p>` : ''}
+      <p class="muted" style="margin-top:6px; font-size:12.5px;">Fayed সবসময় অ্যাডমিন থাকবে (বাদ দেওয়া যাবে না)। বাকিদের টিক দিয়ে অ্যাডমিন/ম্যানেজার হিসেবে যোগ করতে পারো। (এই সেটিং শুধু তুমিই দেখছো।)</p>
+    </div>` : ''}
+    ${(!isAdmin && !isFayedUser()) ? `<p class="muted" style="margin-top:6px">তুমি এখন অ্যাডমিন লিস্টে নেই, তাই টিক দিতে পারবে না — শুধু দেখতে পারবে।</p>` : ''}
   </div>
   <div class="card">
     <h2><span aria-hidden="true">✅</span> সদস্যভিত্তিক ভাড়া অবস্থা</h2>
@@ -1231,6 +1269,7 @@ function renderReport(){
 
 /* ---------------- LOG ---------------- */
 async function renderLog(){
+  if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
   document.getElementById('mainArea').innerHTML = `<div class="card"><h2><span aria-hidden="true">📜</span> <span class="eyebrow">অডিট লগ</span>সব পরিবর্তনের ইতিহাস</h2><div id="logList" class="muted">লোড হচ্ছে...</div></div>`;
   const log = await sget('auditLog', true, []);
   const el = document.getElementById('logList');
@@ -1243,6 +1282,13 @@ async function renderLog(){
 }
 
 init();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW register failed', e));
+  });
+}
 </script>
 </body>
 </html>
