@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>মেস হিসাব খাতা</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla&family=Noto+Sans+Bengali:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F3EEDD;
+    --paper-card:#FBF8EF;
+    --ink:#1E2A38;
+    --ink-soft:#5B6572;
+    --red:#A93226;
+    --red-dark:#7E2620;
+    --green:#2E6B4F;
+    --green-dark:#20503B;
+    --gold:#B4923A;
+    --line:#D9CFB0;
+    --line-strong:#C6BA92;
+    --shadow: 0 2px 10px rgba(30,42,56,0.08);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--paper);
+    background-image: repeating-linear-gradient(to bottom, transparent 0 30px, rgba(180,146,58,0.10) 30px 31px);
+    color:var(--ink);
+    font-family:'Noto Sans Bengali','IBM Plex Mono',sans-serif;
+    min-height:100vh;
+    padding-bottom:40px;
+  }
+  h1,h2,h3{font-family:'Tiro Bangla','Noto Sans Bengali',serif; margin:0; font-weight:400;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  header{
+    background:var(--ink);
+    color:var(--paper-card);
+    padding:18px 16px 14px;
+    position:sticky; top:0; z-index:30;
+    box-shadow:0 3px 8px rgba(0,0,0,0.18);
+  }
+  header .top-row{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  header h1{font-size:22px; letter-spacing:0.5px;}
+  header .stamp{
+    font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--gold); letter-spacing:1px; margin-top:2px;
+  }
+  #userSelectWrap{display:flex; align-items:center; gap:6px; font-size:13px;}
+  #userSelect{
+    background:#2A3B4D; color:#fff; border:1px solid #445064; border-radius:6px; padding:6px 8px; font-family:inherit; font-size:13px;
+  }
+  nav{
+    display:flex; overflow-x:auto; gap:2px; margin-top:14px; -webkit-overflow-scrolling:touch;
+    border-bottom:2px solid var(--gold);
+  }
+  nav button{
+    flex:0 0 auto; background:transparent; border:none; color:#C9D2DC; padding:9px 14px; font-size:13.5px;
+    font-family:'Noto Sans Bengali',sans-serif; cursor:pointer; border-bottom:3px solid transparent; white-space:nowrap;
+  }
+  nav button.active{color:#fff; border-bottom:3px solid var(--red); font-weight:600;}
+  main{max-width:960px; margin:0 auto; padding:18px 14px 60px;}
+  .card{
+    background:var(--paper-card); border:1px solid var(--line-strong); border-left:4px solid var(--red);
+    border-radius:4px; padding:16px 16px; margin-bottom:16px; box-shadow:var(--shadow);
+  }
+  .card h2{font-size:18px; margin-bottom:12px; color:var(--ink);}
+  .card h2 .eyebrow{display:block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--gold); letter-spacing:1.5px; margin-bottom:3px;}
+  .grid{display:grid; gap:12px;}
+  .grid.cols-2{grid-template-columns:1fr 1fr;}
+  .grid.cols-3{grid-template-columns:repeat(3,1fr);}
+  @media (max-width:640px){ .grid.cols-2, .grid.cols-3{grid-template-columns:1fr;} }
+  .stat{
+    background:#fff; border:1px solid var(--line); border-radius:4px; padding:12px 14px;
+  }
+  .stat .label{font-size:11.5px; color:var(--ink-soft); letter-spacing:0.3px;}
+  .stat .value{font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:600; margin-top:4px; color:var(--ink);}
+  .stat .value.red{color:var(--red);}
+  .stat .value.green{color:var(--green);}
+  .leader-row{display:flex; align-items:baseline; margin:6px 0; gap:6px;}
+  .leader-row .lbl{white-space:nowrap; font-size:14px;}
+  .leader-row .fill{flex:1; border-bottom:1px dotted var(--line-strong); margin-bottom:3px;}
+  .leader-row .amt{font-family:'IBM Plex Mono',monospace; font-size:14px; white-space:nowrap; font-weight:600;}
+  table{width:100%; border-collapse:collapse; font-size:13.5px;}
+  th,td{padding:8px 8px; text-align:left; border-bottom:1px solid var(--line);}
+  th{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.5px; color:var(--ink-soft); text-transform:uppercase; font-weight:600;}
+  .tablewrap{overflow-x:auto;}
+  input, select{
+    font-family:'Noto Sans Bengali',sans-serif; font-size:14px; padding:7px 9px; border:1px solid var(--line-strong);
+    border-radius:4px; background:#fff; color:var(--ink); width:100%;
+  }
+  input[type=checkbox]{width:auto; accent-color:var(--red);}
+  label{font-size:12.5px; color:var(--ink-soft); display:block; margin-bottom:3px;}
+  .field{margin-bottom:10px;}
+  .row{display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;}
+  .row>.field{flex:1; min-width:110px;}
+  button.btn{
+    background:var(--ink); color:#fff; border:none; padding:9px 15px; border-radius:4px; font-size:13.5px;
+    cursor:pointer; font-family:'Noto Sans Bengali',sans-serif; font-weight:600;
+  }
+  button.btn:hover{background:#31465e;}
+  button.btn.red{background:var(--red);}
+  button.btn.red:hover{background:var(--red-dark);}
+  button.btn.green{background:var(--green);}
+  button.btn.green:hover{background:var(--green-dark);}
+  button.btn.ghost{background:transparent; color:var(--ink); border:1px solid var(--line-strong);}
+  button.btn.small{padding:5px 10px; font-size:12px;}
+  a.smslink{color:var(--red); text-decoration:none; border-bottom:1px dashed var(--red); font-size:12.5px;}
+  .stamp-badge{
+    display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; letter-spacing:1px;
+    padding:3px 9px; border-radius:3px; transform:rotate(-2deg); border:2px solid; text-transform:uppercase;
+  }
+  .stamp-paid{color:var(--green); border-color:var(--green); background:rgba(46,107,79,0.08);}
+  .stamp-due{color:var(--red); border-color:var(--red); background:rgba(169,50,38,0.08);}
+  .muted{color:var(--ink-soft); font-size:12.5px;}
+  .divider{border:none; border-top:1px dashed var(--line-strong); margin:14px 0;}
+  .tag{display:inline-block; background:#fff; border:1px solid var(--line-strong); border-radius:20px; padding:2px 10px; font-size:11.5px; color:var(--ink-soft);}
+  .empty-note{padding:20px; text-align:center; color:var(--ink-soft); font-size:13.5px; border:1px dashed var(--line-strong); border-radius:6px;}
+  .memberchip{display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border:1px solid var(--line); border-radius:4px; background:#fff; margin-bottom:6px;}
+  .icon-btn{background:transparent; border:none; cursor:pointer; color:var(--red); font-size:15px;}
+  .toast{
+    position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
+    padding:9px 18px; border-radius:20px; font-size:13px; z-index:99; opacity:0; pointer-events:none; transition:opacity .25s;
+  }
+  .toast.show{opacity:1;}
+  .mealslot{border:1px solid var(--line); border-radius:6px; padding:10px 12px; margin-bottom:10px; background:#fff;}
+  .mealslot .headrow{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
+  .checklist{display:grid; grid-template-columns:repeat(2,1fr); gap:4px;}
+  @media (max-width:520px){ .checklist{grid-template-columns:1fr;} }
+  .checkitem{display:flex; align-items:center; gap:6px; font-size:13.5px; padding:3px 0;}
+  .logentry{border-bottom:1px dotted var(--line); padding:8px 0; font-size:12.5px;}
+  .logentry .ts{color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:11px;}
+</style>
+</head>
+<body>
+<header>
+  <div class="top-row">
+    <div>
+      <h1>মেস হিসাব খাতা</h1>
+      <div class="stamp">MESS LEDGER · সবার হিসাব একখানে</div>
+    </div>
+    <div id="userSelectWrap">
+      <button id="langToggle" class="btn ghost small" style="color:#fff;border-color:#445064;">EN</button>
+      <span id="youLabel">আপনি —</span>
+      <select id="userSelect"></select>
+    </div>
+  </div>
+  <nav id="tabNav"></nav>
+</header>
+<main id="mainArea"></main>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* ---------------- Firebase setup ---------------- */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ⚠️ এখানে তোমার Firebase প্রজেক্টের কনফিগ বসাও (Firebase Console > Project settings > General > Your apps > SDK setup and configuration)
+const firebaseConfig = {
+  apiKey: "AIzaSyBaNpwLnrPL1ihkNwS0mTZmmq3Ke0yqf4c",
+  authDomain: "mess-hisab-11.firebaseapp.com",
+  projectId: "mess-hisab-11",
+  storageBucket: "mess-hisab-11.firebasestorage.app",
+  messagingSenderId: "937284245800",
+  appId: "1:937284245800:web:12211041ef24b03e46981d"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+window.__db = db; window.__fsDoc = doc; window.__fsGet = getDoc; window.__fsSet = setDoc;
+window.__fbReady = true;
+document.dispatchEvent(new Event('firebase-ready'));
+</script>
+<script>
+/* ---------------- storage helpers ----------------
+   shared=true  -> Firestore (real shared DB, all 9 members see the same data)
+   shared=false -> localStorage (per-device preference like language / last user) */
+async function sget(key, shared, def){
+  try{
+    if(shared){
+      const ref = window.__fsDoc(window.__db, 'mess', key);
+      const snap = await window.__fsGet(ref);
+      return snap.exists() ? snap.data().value : def;
+    } else {
+      const raw = localStorage.getItem('mess:'+key);
+      return raw ? JSON.parse(raw) : def;
+    }
+  } catch(e){ console.error('storage get failed', key, e); return def; }
+}
+async function sset(key, value, shared){
+  try{
+    if(shared){
+      const ref = window.__fsDoc(window.__db, 'mess', key);
+      await window.__fsSet(ref, { value });
+      return true;
+    } else {
+      localStorage.setItem('mess:'+key, JSON.stringify(value));
+      return true;
+    }
+  } catch(e){ console.error('storage set failed', key, e); showToast('সেভ করতে সমস্যা হয়েছে, আবার চেষ্টা করুন'); return false; }
+}
+</script>
+<script>
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function money(n){ n = Number(n)||0; return '৳' + n.toLocaleString('en-IN', {maximumFractionDigits:2}); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function currentMonthKey(){ return todayStr().slice(0,7); }
+function daysInMonth(mk){ const [y,m]=mk.split('-').map(Number); return new Date(y,m,0).getDate(); }
+function monthLabel(mk){
+  const [y,m]=mk.split('-').map(Number);
+  const namesBn=['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+  const namesEn=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const names = (typeof state!=='undefined' && state.lang==='en') ? namesEn : namesBn;
+  return names[m-1]+' '+y;
+}
+
+/* ---------------- bilingual support ---------------- */
+const DICT = {
+  'মেস হিসাব খাতা':'Mess Ledger',
+  'আপনি —':'You —',
+  '— নির্বাচন করুন —':'— Select —',
+  'ড্যাশবোর্ড':'Dashboard','সদস্য':'Members','ভাড়া':'Rent','মিল':'Meals','বাজার':'Bazar',
+  'অন্যান্য খরচ':'Other Expenses','মাসিক হিসাব':'Monthly Report','লগ':'Log',
+  'এই মাস':'This month','মোট বাজার খরচ':'Total bazar cost','মিল রেট / ইউনিট':'Meal rate / unit',
+  'ভাড়া পরিশোধ':'Rent paid','আজকের বাজার এর পালা':"Today's bazar duty",'মোট মিল ইউনিট':'Total meal units',
+  'ভাড়া বকেয়া':'Rent due','যাদের ভাড়া এখনও বাকি':'Members with unpaid rent',
+  'সবাই এই মাসের ভাড়া দিয়ে দিয়েছে ✓':'Everyone has paid this month ✓',
+  'নাম':'Name','ফোন':'Phone','স্ট্যাটাস':'Status','বাকি':'Due','পরিশোধ':'Paid','নম্বর নেই':'No number',
+  'রিমাইন্ডার পাঠান →':'Send reminder →','সবার নাম কপি করুন (গ্রুপে পাঠানোর জন্য)':'Copy names (to share in group)',
+  'নোট':'Note','কীভাবে কাজ করে':'How it works','কপি হয়েছে':'Copied','কপি করা যায়নি':'Could not copy',
+  'সদস্য তালিকা':'Member list','এখনো কোনো সদস্য যোগ করা হয়নি':'No members added yet',
+  'ফোন নম্বর (SMS রিমাইন্ডারের জন্য)':'Phone number (for SMS reminder)','যেমন: রহিম':'e.g. Rahim',
+  'সদস্য যোগ করুন':'Add member','যোগ হয়েছে':'Added',
+  'মাস পরিবর্তন':'Change month','ডিফল্ট ভাড়া (প্রতি মাথা)':'Default rent (per head)','সেভ করুন':'Save',
+  'যারা "পরিশোধ/বাকি" টিক দিতে পারবে (রেন্ট অ্যাডমিন)':'Who can mark paid/due (rent admins)',
+  'তুমি এখন অ্যাডমিন লিস্টে নেই, তাই টিক দিতে পারবে না — শুধু দেখতে পারবে।':"You're not an admin — you can view only.",
+  'সদস্যভিত্তিক ভাড়া অবস্থা':'Rent status by member',
+  'প্রথমে "সদস্য" ট্যাব থেকে সদস্য যোগ করুন':'Add members from the "Members" tab first',
+  'ভাড়ার পরিমাণ':'Rent amount','একশন':'Action','বাকি করুন':'Mark due','পরিশোধ চিহ্নিত করুন':'Mark paid',
+  'দৈনিক মিল':'Daily meal','মিল এন্ট্রি':'Meal entry','তারিখ':'Date','প্রথমে সদস্য যোগ করুন':'Add members first',
+  'সকাল':'Breakfast','রাত':'Dinner','ওজন':'weight','মিল হচ্ছে':'Meal is on',
+  'গেস্ট মিল (কেউ মেহমান নিয়ে এলে)':'Guest meal (if someone brings a guest)',
+  'মেহমান কার':"Whose guest",'সংখ্যা':'Count','নোট (ঐচ্ছিক)':'Note (optional)','যেমন: বন্ধু এসেছে':'e.g. a friend came',
+  'যোগ':'Add','এই স্লটে মিল বন্ধ চিহ্নিত':'Meal marked off for this slot',
+  'এই দিনের মিল সেভ করুন':"Save this day's meals",'এই মাসের মিল সংখ্যা (সদস্যভিত্তিক)':"This month's meal count (by member)",
+  'নিজের+গেস্ট মিল ইউনিট':'Own+guest meal units','এর মধ্যে গেস্ট ইউনিট':'of which guest units',
+  'গেস্ট মিলের খরচ যার মেহমান তার হিসাবেই যোগ হয়।':"A guest's meal cost is added to the host's own total.",
+  'মিল সেভ হয়েছে':'Meals saved','মেহমান কার নির্বাচন করুন':'Select whose guest it is',
+  'বাজারের পালা (রোটেশন)':'Bazar rotation','একজন কত দিন করে বাজার করবে':'Days per person in rotation',
+  'অটো জেনারেট করুন':'Auto-generate','এখনো পালা তৈরি হয়নি — অটো জেনারেট করুন অথবা সদস্য যোগ করুন':'No rotation yet — auto-generate or add members',
+  'দিন':'Day','দায়িত্বে':'On duty','পরিবর্তন':'Change','বাজারের খরচ যোগ করুন':'Add bazar expense',
+  'কে বাজার করেছে':'Who bought','পরিমাণ (৳)':'Amount (৳)','নোট (কি বাজার হলো)':'Note (what was bought)',
+  'যেমন: মাছ, সবজি':'e.g. fish, vegetables','যোগ করুন':'Add','কোনো এন্ট্রি নেই':'No entries',
+  'কোনো খরচ যোগ করা হয়নি':'No expenses added','যোগ করেছেন':'Added by','মোট':'Total',
+  'অন্যান্য খরচ (ওয়াইফাই, বুয়া, সার্ভিস চার্জ ইত্যাদি)':'Other expenses (wifi, house help, service charge etc.)',
+  'খরচের নাম':'Expense name','যেমন: ওয়াইফাই বিল':'e.g. wifi bill',
+  'এই খরচ সবার মধ্যে সমানভাবে ভাগ হয়ে "মাসিক হিসাব" ট্যাবে যোগ হবে।':'This is split equally and added in the "Monthly Report" tab.',
+  'প্রতি মিল ইউনিট রেট':'Rate per meal unit','মোট অন্যান্য খরচ':'Total other expenses',
+  'মাথাপিছু অন্যান্য খরচ':'Other expense per head','সদস্যভিত্তিক সম্পূর্ণ হিসাব':'Full breakdown by member',
+  'সদস্য নেই':'No members','মিল ইউনিট':'Meal units','মিল খরচ':'Meal cost','অন্যান্য (ভাগ)':'Other (share)','সর্বমোট':'Grand total',
+  'অডিট লগ':'Audit log','সব পরিবর্তনের ইতিহাস':'History of all changes','লোড হচ্ছে...':'Loading...','এখনো কোনো লগ নেই':'No log entries yet',
+  'কে':'Who','ফোন নম্বর':'Phone number'
+};
+function walkTranslate(node){
+  if(node.nodeType===3){
+    const trimmed = node.textContent.trim();
+    if(trimmed && DICT[trimmed]) node.textContent = node.textContent.replace(trimmed, DICT[trimmed]);
+    return;
+  }
+  if(node.nodeType!==1) return;
+  if(node.placeholder && DICT[node.placeholder]) node.placeholder = DICT[node.placeholder];
+  node.childNodes.forEach(walkTranslate);
+}
+let __translating=false;
+function applyLangIfNeeded(){
+  if(state.lang!=='en' || __translating) return;
+  __translating=true;
+  walkTranslate(document.body);
+  __translating=false;
+}
+
+
+/* ---------------- state ---------------- */
+const state = {
+  members: [],
+  settings: { mealWeights:{sokal:0.5, rat:1}, rentDefault:0, bazarNextIndex:0, bazarCycleDays:3, rentAdmins:[] },
+  monthKey: currentMonthKey(),
+  monthData: null,
+  auditLog: [],
+  currentUser: '',
+  activeTab: 'dashboard',
+  lang: 'bn'
+};
+
+function emptyMonth(){
+  return { rent:{}, meals:{}, bazarPurchases:[], bazarRotation:{startIndex:0, cycleDays:3, assignments:[]}, expenses:[] };
+}
+
+async function loadMonth(mk){
+  const d = await sget('mess:'+mk, true, null);
+  return d ? Object.assign(emptyMonth(), d) : emptyMonth();
+}
+async function saveMonth(){
+  await sset('mess:'+state.monthKey, state.monthData, true);
+}
+
+async function addLog(action, detail){
+  let log = await sget('auditLog', true, []);
+  log.unshift({ ts: Date.now(), actor: state.currentUser || 'অজানা', action, detail });
+  if(log.length > 300) log = log.slice(0,300);
+  await sset('auditLog', log, true);
+}
+
+/* ---------------- seed data (one-time, from WhatsApp poll) ---------------- */
+async function seedInitialData(){
+  const existingMembers = await sget('members', true, []);
+  if(existingMembers.length > 0) return; // already set up, don't overwrite
+
+  const seedNames = [
+    'Maruf',
+    'Fayed',
+    'Adil Ahmed',
+    'Muhir',
+    'Ahad',
+    'Dip',
+    'Dhonjoy',
+    'Touhid',
+    'Shapon'
+  ];
+  const members = seedNames.map(name => ({ id: uid(), name, phone: '' }));
+  await sset('members', members, true);
+
+  // only Fayed + whoever is set as mess manager can tick rent paid/unpaid
+  const fayed = members.find(m=>m.name==='Fayed');
+  state.settings.rentAdmins = fayed ? [fayed.id] : [];
+  await sset('settings', state.settings, true);
+
+  // August 2026 bazar rotation, from the WhatsApp poll (days 1-3 and 31 not yet assigned)
+  const aug = emptyMonth();
+  const dayRanges = [
+    [1,3,null],
+    [4,6,'Maruf'],
+    [7,9,'Fayed'],
+    [10,12,'Adil Ahmed'],
+    [13,15,'Muhir'],
+    [16,18,'Ahad'],
+    [19,21,'Dip'],
+    [22,24,'Dhonjoy'],
+    [25,27,'Touhid'],
+    [28,30,'Shapon']
+  ];
+  aug.bazarRotation.cycleDays = 3;
+  aug.bazarRotation.assignments = dayRanges.map(([start,end,name])=>{
+    const mem = name ? members.find(m=>m.name===name) : null;
+    return { memberId: mem ? mem.id : null, startDay:start, endDay:end };
+  });
+  await sset('mess:2026-08', aug, true);
+  await addLog('বাজার রোটেশন (পোল থেকে)', 'আগস্ট ২০২৬ এর পালা হোয়াটসঅ্যাপ পোল থেকে সেভ করা হলো। ১-৩ ও ৩১ তারিখ এখনো ঠিক করা হয়নি।');
+}
+
+/* ---------------- one-time cleanup: normalize old messy member names ---------------- */
+async function cleanupMemberNames(){
+  const members = await sget('members', true, []);
+  if(!members.length) return;
+  // maps a lowercase substring found in the old messy name -> clean name
+  const cleanMap = [
+    ['maruf', 'Maruf'],
+    ['fayed', 'Fayed'],
+    ['adil', 'Adil Ahmed'],
+    ['muhir', 'Muhir'],
+    ['ahad', 'Ahad'],
+    ['dip', 'Dip'],
+    ['dhon', 'Dhonjoy'],
+    ['touhid', 'Touhid'],
+    ['shapon', 'Shapon']
+  ];
+  let changed = false;
+  const updated = members.map(m=>{
+    const lower = (m.name||'').toLowerCase();
+    const hit = cleanMap.find(([key])=> lower.includes(key));
+    if(hit && m.name !== hit[1]){
+      changed = true;
+      return Object.assign({}, m, { name: hit[1] });
+    }
+    return m;
+  });
+  if(changed){
+    await sset('members', updated, true);
+    await addLog('মেম্বার নাম পরিষ্কার করা হলো', 'পুরনো লম্বা নাম (Vai/Bhai/বিভাগ তথ্যসহ) বদলে ছোট ক্লিন নাম বসানো হলো।');
+  }
+}
+
+function waitForFirebase(){
+  return new Promise(resolve=>{
+    if(window.__fbReady) return resolve();
+    document.addEventListener('firebase-ready', ()=>resolve(), {once:true});
+  });
+}
+
+/* ---------------- init ---------------- */
+async function init(){
+  await waitForFirebase();
+  await seedInitialData();
+  await cleanupMemberNames();
+  state.members = await sget('members', true, []);
+  state.settings = Object.assign(state.settings, await sget('settings', true, {}));
+  state.currentUser = await sget('lastUser', false, '');
+  state.lang = await sget('lang', false, 'bn');
+  state.monthData = await loadMonth(state.monthKey);
+  buildUserSelect();
+  buildNav();
+  render();
+  document.getElementById('langToggle').textContent = state.lang==='bn' ? 'EN' : 'বাং';
+  document.getElementById('langToggle').onclick = async ()=>{
+    state.lang = state.lang==='bn' ? 'en' : 'bn';
+    await sset('lang', state.lang, false);
+    document.getElementById('langToggle').textContent = state.lang==='bn' ? 'EN' : 'বাং';
+    buildUserSelect();
+    buildNav();
+    render();
+  };
+  new MutationObserver(applyLangIfNeeded).observe(document.body, {childList:true, subtree:true});
+  applyLangIfNeeded();
+}
+
+function buildUserSelect(){
+  const sel = document.getElementById('userSelect');
+  sel.innerHTML = '<option value="">— নির্বাচন করুন —</option>' +
+    state.members.map(m=>`<option value="${m.id}">${escapeHtml(m.name)}</option>`).join('');
+  sel.value = state.currentUser || '';
+  sel.onchange = async ()=>{
+    state.currentUser = sel.value;
+    await sset('lastUser', state.currentUser, false);
+  };
+}
+function currentUserName(){
+  const m = state.members.find(x=>x.id===state.currentUser);
+  return m ? m.name : (state.currentUser || 'অজানা');
+}
+
+const TABS = [
+  ['dashboard','ড্যাশবোর্ড'],
+  ['members','সদস্য'],
+  ['rent','ভাড়া'],
+  ['meals','মিল'],
+  ['bazar','বাজার'],
+  ['expenses','অন্যান্য খরচ'],
+  ['report','মাসিক হিসাব'],
+  ['log','লগ']
+];
+function buildNav(){
+  const nav=document.getElementById('tabNav');
+  nav.innerHTML = TABS.map(([id,label])=>`<button data-tab="${id}" class="${state.activeTab===id?'active':''}">${label}</button>`).join('');
+  nav.querySelectorAll('button').forEach(b=>{
+    b.onclick = ()=>{ state.activeTab=b.dataset.tab; buildNav(); render(); };
+  });
+}
+
+function escapeHtml(s){
+  return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- render dispatcher ---------------- */
+function render(){
+  const map = {
+    dashboard: renderDashboard,
+    members: renderMembers,
+    rent: renderRent,
+    meals: renderMeals,
+    bazar: renderBazar,
+    expenses: renderExpenses,
+    report: renderReport,
+    log: renderLog
+  };
+  map[state.activeTab]();
+}
+
+/* ---------------- calculations shared ---------------- */
+function mealUnitsForMember(memberId, monthData){
+  let units=0;
+  for(const date in monthData.meals){
+    const day = monthData.meals[date];
+    ['sokal','rat'].forEach(slot=>{
+      if(day[slot] && day[slot].active && day[slot].members && day[slot].members[memberId]){
+        units += state.settings.mealWeights[slot];
+      }
+      if(day[slot] && day[slot].active && day[slot].guests){
+        day[slot].guests.forEach(g=>{
+          if(g.hostMemberId===memberId) units += (Number(g.count)||0) * state.settings.mealWeights[slot];
+        });
+      }
+    });
+  }
+  return units;
+}
+function guestUnitsForMember(memberId, monthData){
+  let units=0;
+  for(const date in monthData.meals){
+    const day = monthData.meals[date];
+    ['sokal','rat'].forEach(slot=>{
+      if(day[slot] && day[slot].active && day[slot].guests){
+        day[slot].guests.forEach(g=>{
+          if(g.hostMemberId===memberId) units += (Number(g.count)||0) * state.settings.mealWeights[slot];
+        });
+      }
+    });
+  }
+  return units;
+}
+function totalMealUnits(monthData){
+  let t=0;
+  for(const date in monthData.meals){
+    const day = monthData.meals[date];
+    ['sokal','rat'].forEach(slot=>{
+      if(day[slot] && day[slot].active && day[slot].members){
+        Object.values(day[slot].members).forEach(v=>{ if(v) t += state.settings.mealWeights[slot]; });
+      }
+      if(day[slot] && day[slot].active && day[slot].guests){
+        day[slot].guests.forEach(g=>{ t += (Number(g.count)||0) * state.settings.mealWeights[slot]; });
+      }
+    });
+  }
+  return t;
+}
+function totalBazar(monthData){ return monthData.bazarPurchases.reduce((s,p)=>s+Number(p.amount||0),0); }
+function totalExpenses(monthData){ return monthData.expenses.reduce((s,e)=>s+Number(e.amount||0),0); }
+function rentAmountFor(memberId, monthData){
+  const r = monthData.rent[memberId];
+  if(r && r.amount!=null && r.amount!=='') return Number(r.amount);
+  return Number(state.settings.rentDefault||0);
+}
+function isRentPaid(memberId, monthData){
+  const r = monthData.rent[memberId];
+  return !!(r && r.paid);
+}
+
+/* ---------------- DASHBOARD ---------------- */
+function renderDashboard(){
+  const m = state.monthData;
+  const tBazar = totalBazar(m);
+  const tExp = totalExpenses(m);
+  const tUnits = totalMealUnits(m);
+  const mealRate = tUnits>0 ? tBazar/tUnits : 0;
+  const paidCount = state.members.filter(mem=>isRentPaid(mem.id,m)).length;
+  const unpaid = state.members.filter(mem=>!isRentPaid(mem.id,m));
+
+  const [y,mo,da] = todayStr().split('-').map(Number);
+  const isCurrentMonth = state.monthKey===currentMonthKey();
+  let onDutyName='—';
+  if(isCurrentMonth){
+    const assn = m.bazarRotation.assignments.find(a=> da>=a.startDay && da<=a.endDay);
+    if(assn){ const mem = state.members.find(x=>x.id===assn.memberId); if(mem) onDutyName = mem.name; }
+  }
+
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">এই মাস</span>${monthLabel(state.monthKey)}</h2>
+    <div class="grid cols-3">
+      <div class="stat"><div class="label">মোট বাজার খরচ</div><div class="value mono">${money(tBazar)}</div></div>
+      <div class="stat"><div class="label">মিল রেট / ইউনিট</div><div class="value mono">${money(mealRate.toFixed(2))}</div></div>
+      <div class="stat"><div class="label">অন্যান্য খরচ</div><div class="value mono">${money(tExp)}</div></div>
+      <div class="stat"><div class="label">ভাড়া পরিশোধ</div><div class="value mono green">${paidCount}/${state.members.length}</div></div>
+      <div class="stat"><div class="label">আজকের বাজার এর পালা</div><div class="value" style="font-size:16px">${escapeHtml(onDutyName)}</div></div>
+      <div class="stat"><div class="label">মোট মিল ইউনিট</div><div class="value mono">${tUnits}</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="eyebrow">ভাড়া বকেয়া</span>যাদের ভাড়া এখনও বাকি</h2>
+    ${unpaid.length===0 ? `<div class="empty-note">সবাই এই মাসের ভাড়া দিয়ে দিয়েছে ✓</div>` :
+      `<table><thead><tr><th>নাম</th><th>ফোন</th><th>স্ট্যাটাস</th><th></th></tr></thead><tbody>
+      ${unpaid.map(u=>`<tr>
+        <td>${escapeHtml(u.name)}</td>
+        <td class="mono">${escapeHtml(u.phone||'—')}</td>
+        <td><span class="stamp-badge stamp-due">বাকি</span></td>
+        <td>${u.phone ? `<a class="smslink" href="sms:${encodeURIComponent(u.phone)}?body=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(rentAmountFor(u.id,m))+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">রিমাইন্ডার পাঠান →</a>` : `<span class="muted">নম্বর নেই</span>`}</td>
+      </tr>`).join('')}
+      </tbody></table>
+      <button class="btn ghost small" style="margin-top:10px" id="copyReminderBtn">সবার নাম কপি করুন (গ্রুপে পাঠানোর জন্য)</button>`
+    }
+  </div>
+
+  <div class="card">
+    <h2><span class="eyebrow">নোট</span>কীভাবে কাজ করে</h2>
+    <p class="muted">এই খাতার সব তথ্য শেয়ার্ড — মেসের সবাই একই লিংক খুললে একই হিসাব দেখতে ও লিখতে পারবে। উপরে ডানপাশ থেকে নিজের নাম বেছে নিন, তাহলে আপনার করা এন্ট্রি লগ-এ আপনার নামে সেভ হবে।</p>
+  </div>
+  `;
+  const copyBtn = document.getElementById('copyReminderBtn');
+  if(copyBtn){
+    copyBtn.onclick = ()=>{
+      const txt = 'ভাড়া বাকি ('+monthLabel(state.monthKey)+'): ' + unpaid.map(u=>u.name).join(', ');
+      navigator.clipboard.writeText(txt).then(()=>showToast('কপি হয়েছে')).catch(()=>showToast('কপি করা যায়নি'));
+    };
+  }
+}
+
+/* ---------------- MEMBERS ---------------- */
+function renderMembers(){
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">${state.members.length} জন</span>সদস্য তালিকা</h2>
+    <div id="memberList">
+      ${state.members.length===0 ? `<div class="empty-note">এখনো কোনো সদস্য যোগ করা হয়নি</div>` :
+        state.members.map(m=>`
+        <div class="memberchip">
+          <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
+            <strong>${escapeHtml(m.name)}</strong>
+            <input type="tel" class="mono" data-editphone="${m.id}" value="${escapeHtml(m.phone||'')}" placeholder="01XXXXXXXXX" style="max-width:150px; font-size:12.5px; padding:4px 8px;">
+          </div>
+          <button class="icon-btn" data-del="${m.id}" title="মুছুন">✕</button>
+        </div>`).join('')}
+    </div>
+    <hr class="divider">
+    <div class="row">
+      <div class="field"><label>নাম</label><input id="mName" placeholder="যেমন: রহিম"></div>
+      <div class="field"><label>ফোন নম্বর (SMS রিমাইন্ডারের জন্য)</label><input id="mPhone" placeholder="01XXXXXXXXX"></div>
+      <button class="btn" id="addMemberBtn">সদস্য যোগ করুন</button>
+    </div>
+  </div>`;
+  document.getElementById('addMemberBtn').onclick = async ()=>{
+    const name = document.getElementById('mName').value.trim();
+    const phone = document.getElementById('mPhone').value.trim();
+    if(!name){ showToast('নাম লিখুন'); return; }
+    state.members.push({id:uid(), name, phone});
+    await sset('members', state.members, true);
+    await addLog('সদস্য যোগ', name+' যোগ করা হয়েছে');
+    buildUserSelect();
+    renderMembers();
+    showToast('যোগ হয়েছে');
+  };
+  document.getElementById('memberList').querySelectorAll('[data-editphone]').forEach(inp=>{
+    inp.onchange = async ()=>{
+      const id = inp.dataset.editphone;
+      const mem = state.members.find(x=>x.id===id);
+      const old = mem.phone || '';
+      const val = inp.value.trim();
+      if(old===val) return;
+      mem.phone = val;
+      await sset('members', state.members, true);
+      await addLog('ফোন নম্বর পরিবর্তন', mem.name+': '+(old||'—')+' → '+(val||'—'));
+      showToast('সেভ হয়েছে');
+    };
+  });
+  document.getElementById('memberList').querySelectorAll('[data-del]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id=b.dataset.del;
+      const mem = state.members.find(x=>x.id===id);
+      if(b.dataset.confirming !== 'yes'){
+        b.dataset.confirming = 'yes';
+        b.textContent = 'নিশ্চিত?';
+        b.style.color = '#c0392b';
+        b.style.fontWeight = '700';
+        setTimeout(()=>{ if(b.dataset.confirming==='yes'){ b.dataset.confirming='no'; b.textContent='✕'; b.style.fontWeight=''; } }, 3000);
+        return;
+      }
+      state.members = state.members.filter(x=>x.id!==id);
+      await sset('members', state.members, true);
+      await addLog('সদস্য মোছা', mem.name+' মুছে ফেলা হয়েছে');
+      buildUserSelect();
+      renderMembers();
+    };
+  });
+}
+
+/* ---------------- RENT ---------------- */
+function renderRent(){
+  const m = state.monthData;
+  const today = new Date();
+  const showReminder = today.getDate() >= 9;
+  const isAdmin = state.settings.rentAdmins.includes(state.currentUser);
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">মাস</span>${monthLabel(state.monthKey)} — ভাড়া</h2>
+    <div class="row">
+      <div class="field"><label>মাস পরিবর্তন</label><input type="month" id="monthPicker" value="${state.monthKey}"></div>
+      <div class="field"><label>ডিফল্ট ভাড়া (প্রতি মাথা)</label><input type="number" id="rentDefault" value="${state.settings.rentDefault}"></div>
+      <button class="btn ghost small" id="saveDefaultBtn">সেভ করুন</button>
+    </div>
+    <hr class="divider">
+    <div class="field">
+      <label>যারা "পরিশোধ/বাকি" টিক দিতে পারবে (রেন্ট অ্যাডমিন)</label>
+      <div class="checklist">
+        ${state.members.map(mem=>`
+          <label class="checkitem">
+            <input type="checkbox" data-rentadmin="${mem.id}" ${state.settings.rentAdmins.includes(mem.id)?'checked':''}>
+            ${escapeHtml(mem.name)}
+          </label>`).join('')}
+      </div>
+    </div>
+    ${!isAdmin ? `<p class="muted" style="margin-top:6px">তুমি এখন অ্যাডমিন লিস্টে নেই, তাই টিক দিতে পারবে না — শুধু দেখতে পারবে।</p>` : ''}
+  </div>
+  <div class="card">
+    <h2>সদস্যভিত্তিক ভাড়া অবস্থা</h2>
+    ${state.members.length===0 ? `<div class="empty-note">প্রথমে "সদস্য" ট্যাব থেকে সদস্য যোগ করুন</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>নাম</th><th>ভাড়ার পরিমাণ</th><th>স্ট্যাটাস</th><th>একশন</th></tr></thead>
+      <tbody>
+      ${state.members.map(mem=>{
+        const paid = isRentPaid(mem.id,m);
+        const amt = rentAmountFor(mem.id,m);
+        return `<tr>
+          <td>${escapeHtml(mem.name)}</td>
+          <td>${isAdmin ? `<input class="mono rentAmt" data-id="${mem.id}" type="number" value="${amt}" style="max-width:110px">` : `<span class="mono">${money(amt)}</span>`}</td>
+          <td>${paid?`<span class="stamp-badge stamp-paid">পরিশোধ</span>`:`<span class="stamp-badge stamp-due">বাকি</span>`}</td>
+          <td>
+            ${isAdmin ? `<button class="btn small ${paid?'ghost':'green'}" data-toggle="${mem.id}">${paid?'বাকি করুন':'পরিশোধ চিহ্নিত করুন'}</button>` : ''}
+            ${(!paid && showReminder && mem.phone) ? `<a class="smslink" style="margin-left:8px" href="sms:${encodeURIComponent(mem.phone)}?body=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(amt)+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">SMS →</a>` : ''}
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody>
+    </table></div>`}
+  </div>`;
+
+  document.querySelectorAll('[data-rentadmin]').forEach(cb=>{
+    cb.onchange = async ()=>{
+      const id = cb.dataset.rentadmin;
+      const mem = state.members.find(x=>x.id===id);
+      if(cb.checked){ if(!state.settings.rentAdmins.includes(id)) state.settings.rentAdmins.push(id); }
+      else{ state.settings.rentAdmins = state.settings.rentAdmins.filter(x=>x!==id); }
+      await sset('settings', state.settings, true);
+      await addLog('রেন্ট অ্যাডমিন পরিবর্তন', mem.name+': '+(cb.checked?'অ্যাডমিন করা হলো':'অ্যাডমিন বাদ দেওয়া হলো'));
+      renderRent();
+    };
+  });
+
+  document.getElementById('monthPicker').onchange = async (e)=>{
+    state.monthKey = e.target.value;
+    state.monthData = await loadMonth(state.monthKey);
+    render();
+  };
+  document.getElementById('saveDefaultBtn').onclick = async ()=>{
+    const old = state.settings.rentDefault;
+    const val = Number(document.getElementById('rentDefault').value)||0;
+    state.settings.rentDefault = val;
+    await sset('settings', state.settings, true);
+    await addLog('ডিফল্ট ভাড়া পরিবর্তন', old+' → '+val);
+    showToast('সেভ হয়েছে'); render();
+  };
+  document.querySelectorAll('.rentAmt').forEach(inp=>{
+    inp.onchange = async ()=>{
+      const id = inp.dataset.id;
+      const mem = state.members.find(x=>x.id===id);
+      const old = rentAmountFor(id, m);
+      const val = Number(inp.value)||0;
+      m.rent[id] = Object.assign({}, m.rent[id], {amount: val});
+      await saveMonth();
+      await addLog('ভাড়ার পরিমাণ পরিবর্তন', mem.name+': '+old+' → '+val+' ('+monthLabel(state.monthKey)+')');
+      showToast('সেভ হয়েছে');
+    };
+  });
+  document.querySelectorAll('[data-toggle]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.dataset.toggle;
+      const mem = state.members.find(x=>x.id===id);
+      const wasPaid = isRentPaid(id,m);
+      m.rent[id] = Object.assign({}, m.rent[id], {paid: !wasPaid, date: !wasPaid ? todayStr() : null, amount: rentAmountFor(id,m)});
+      await saveMonth();
+      await addLog('ভাড়া স্ট্যাটাস', mem.name+': '+(wasPaid?'পরিশোধ→বাকি':'বাকি→পরিশোধ')+' ('+monthLabel(state.monthKey)+')');
+      renderRent();
+    };
+  });
+}
+
+/* ---------------- MEALS ---------------- */
+function renderMeals(){
+  const m = state.monthData;
+  if(!state._mealDate) state._mealDate = todayStr();
+  if(!state._guestOpen) state._guestOpen = {sokal:false, rat:false};
+  const date = state._mealDate;
+  if(!m.meals[date]) m.meals[date] = {sokal:{active:false, members:{}, guests:[]}, rat:{active:false, members:{}, guests:[]}};
+  const day = m.meals[date];
+  ['sokal','rat'].forEach(s=>{ if(!day[s].guests) day[s].guests=[]; });
+
+  function slotHtml(slotKey, label, weight){
+    const slot = day[slotKey];
+    return `<div class="mealslot">
+      <div class="headrow">
+        <strong>${label} <span class="muted mono">(ওজন ${weight})</span></strong>
+        <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
+          <input type="checkbox" data-slotactive="${slotKey}" ${slot.active?'checked':''}> মিল হচ্ছে
+        </label>
+      </div>
+      ${slot.active ? `<div class="checklist">
+        ${state.members.map(mem=>`
+          <label class="checkitem">
+            <input type="checkbox" data-slot="${slotKey}" data-mem="${mem.id}" ${slot.members[mem.id]?'checked':''}>
+            ${escapeHtml(mem.name)}
+          </label>`).join('')}
+      </div>
+      <hr class="divider" style="margin:10px 0">
+      ${slot.guests.length>0 ? slot.guests.map((g,i)=>{
+        const host = state.members.find(x=>x.id===g.hostMemberId);
+        return `<div class="leader-row"><span class="lbl">${escapeHtml(host?host.name:'—')} এর ${g.count} জন গেস্ট${g.note?' ('+escapeHtml(g.note)+')':''}</span><span class="fill"></span><button class="icon-btn" data-delguest="${slotKey}:${i}" style="font-size:12px">✕</button></div>`;
+      }).join('') : ''}
+      <button type="button" class="btn ghost small" data-guesttoggle="${slotKey}" style="font-size:12.5px; padding:4px 10px;">${state._guestOpen && state._guestOpen[slotKey] ? '− গেস্ট মিল ফর্ম বন্ধ করুন' : '+ গেস্ট মিল যোগ করুন ▾'}</button>
+      ${state._guestOpen && state._guestOpen[slotKey] ? `
+      <div class="row" style="margin-top:6px">
+        <div class="field" style="min-width:100px"><label>মেহমান কার</label>
+          <select data-guesthost="${slotKey}">${state.members.map(mm=>`<option value="${mm.id}">${escapeHtml(mm.name)}</option>`).join('')}</select>
+        </div>
+        <div class="field" style="max-width:80px"><label>সংখ্যা</label><input type="number" min="1" value="1" data-guestcount="${slotKey}"></div>
+        <div class="field" style="flex:2"><label>নোট (ঐচ্ছিক)</label><input data-guestnote="${slotKey}" placeholder="যেমন: বন্ধু এসেছে"></div>
+        <button class="btn ghost small" data-addguest="${slotKey}">যোগ</button>
+      </div>` : ''}
+      ` : `<div class="muted" style="font-size:12.5px">এই স্লটে মিল বন্ধ চিহ্নিত</div>`}
+    </div>`;
+  }
+
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">দৈনিক মিল</span>মিল এন্ট্রি</h2>
+    <div class="field" style="max-width:220px"><label>তারিখ</label><input type="date" id="mealDate" value="${date}"></div>
+    ${state.members.length===0 ? `<div class="empty-note">প্রথমে সদস্য যোগ করুন</div>` : `
+      ${slotHtml('sokal','সকাল', state.settings.mealWeights.sokal)}
+      ${slotHtml('rat','রাত', state.settings.mealWeights.rat)}
+      <button class="btn" id="saveMealBtn">এই দিনের মিল সেভ করুন</button>
+    `}
+  </div>
+  <div class="card">
+    <h2>এই মাসের মিল সংখ্যা (সদস্যভিত্তিক)</h2>
+    ${state.members.length===0 ? `<div class="empty-note">—</div>` : `
+    <div class="tablewrap"><table><thead><tr><th>নাম</th><th>নিজের+গেস্ট মিল ইউনিট</th><th>এর মধ্যে গেস্ট ইউনিট</th></tr></thead><tbody>
+    ${state.members.map(mem=>`<tr><td>${escapeHtml(mem.name)}</td><td class="mono">${mealUnitsForMember(mem.id, m)}</td><td class="mono muted">${guestUnitsForMember(mem.id,m)}</td></tr>`).join('')}
+    </tbody></table></div>
+    <p class="muted" style="margin-top:6px">গেস্ট মিলের খরচ যার মেহমান তার হিসাবেই যোগ হয়।</p>`}
+  </div>`;
+
+  document.getElementById('mealDate').onchange = (e)=>{ state._mealDate = e.target.value; renderMeals(); };
+  document.querySelectorAll('[data-slotactive]').forEach(cb=>{
+    cb.onchange = ()=>{ day[cb.dataset.slotactive].active = cb.checked; renderMeals(); };
+  });
+  document.querySelectorAll('[data-slot]').forEach(cb=>{
+    cb.onchange = ()=>{
+      const slot = cb.dataset.slot, memId = cb.dataset.mem;
+      day[slot].members[memId] = cb.checked;
+    };
+  });
+  document.querySelectorAll('[data-guesttoggle]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const slot = btn.dataset.guesttoggle;
+      state._guestOpen[slot] = !state._guestOpen[slot];
+      renderMeals();
+    };
+  });
+  document.querySelectorAll('[data-addguest]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const slot = btn.dataset.addguest;
+      const hostSel = document.querySelector(`[data-guesthost="${slot}"]`);
+      const countInp = document.querySelector(`[data-guestcount="${slot}"]`);
+      const noteInp = document.querySelector(`[data-guestnote="${slot}"]`);
+      const count = Number(countInp.value)||1;
+      if(!hostSel.value){ showToast('মেহমান কার নির্বাচন করুন'); return; }
+      day[slot].guests.push({hostMemberId: hostSel.value, count, note: noteInp.value.trim()});
+      renderMeals();
+    };
+  });
+  document.querySelectorAll('[data-delguest]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const [slot, idx] = btn.dataset.delguest.split(':');
+      day[slot].guests.splice(Number(idx),1);
+      renderMeals();
+    };
+  });
+  const saveBtn = document.getElementById('saveMealBtn');
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      await saveMonth();
+      const sokalCount = Object.values(day.sokal.members).filter(Boolean).length;
+      const ratCount = Object.values(day.rat.members).filter(Boolean).length;
+      await addLog('মিল এন্ট্রি সেভ', date+': সকাল '+sokalCount+' জন, রাত '+ratCount+' জন');
+      showToast('মিল সেভ হয়েছে');
+      renderMeals();
+    };
+  }
+}
+
+/* ---------------- BAZAR ---------------- */
+function renderBazar(){
+  const m = state.monthData;
+  const dim = daysInMonth(state.monthKey);
+
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন)</h2>
+    <div class="row">
+      <div class="field"><label>একজন কত দিন করে বাজার করবে</label><input type="number" id="cycleDays" value="${m.bazarRotation.cycleDays || state.settings.bazarCycleDays}" min="1" max="15"></div>
+      <button class="btn ghost small" id="genRotationBtn">অটো জেনারেট করুন</button>
+    </div>
+    ${m.bazarRotation.assignments.length===0 ? `<div class="empty-note">এখনো পালা তৈরি হয়নি — অটো জেনারেট করুন অথবা সদস্য যোগ করুন</div>` : `
+    <div class="tablewrap"><table><thead><tr><th>দিন</th><th>দায়িত্বে</th><th></th></tr></thead><tbody>
+      ${m.bazarRotation.assignments.map((a,i)=>{
+        const mem = state.members.find(x=>x.id===a.memberId);
+        return `<tr><td>${a.startDay===a.endDay ? a.startDay : a.startDay+'–'+a.endDay}</td>
+          <td>${mem?escapeHtml(mem.name):'—'}</td>
+          <td><button class="btn small ghost" data-editassn="${i}">পরিবর্তন</button></td></tr>`;
+      }).join('')}
+    </tbody></table></div>`}
+  </div>
+
+  <div class="card">
+    <h2>বাজারের খরচ যোগ করুন</h2>
+    ${state.members.length===0 ? `<div class="empty-note">প্রথমে সদস্য যোগ করুন</div>` : `
+    <div class="row">
+      <div class="field"><label>কে বাজার করেছে</label>
+        <select id="bzMember">${state.members.map(mm=>`<option value="${mm.id}">${escapeHtml(mm.name)}</option>`).join('')}</select>
+      </div>
+      <div class="field"><label>তারিখ</label><input type="date" id="bzDate" value="${todayStr()}"></div>
+      <div class="field"><label>পরিমাণ (৳)</label><input type="number" id="bzAmount" placeholder="0"></div>
+      <div class="field" style="flex:2"><label>নোট (কি বাজার হলো)</label><input id="bzNote" placeholder="যেমন: মাছ, সবজি"></div>
+      <button class="btn" id="addBazarBtn">যোগ করুন</button>
+    </div>`}
+    <hr class="divider">
+    <div class="tablewrap"><table>
+      <thead><tr><th>তারিখ</th><th>কে</th><th>পরিমাণ</th><th>নোট</th><th></th></tr></thead>
+      <tbody>
+      ${m.bazarPurchases.length===0 ? `<tr><td colspan="5" class="empty-note">কোনো এন্ট্রি নেই</td></tr>` :
+        m.bazarPurchases.slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>{
+          const mem = state.members.find(x=>x.id===p.memberId);
+          return `<tr><td class="mono">${p.date}</td><td>${mem?escapeHtml(mem.name):'—'}</td><td class="mono">${money(p.amount)}</td><td>${escapeHtml(p.note||'')}</td>
+          <td><button class="icon-btn" data-delbz="${p.id}">✕</button></td></tr>`;
+        }).join('')}
+      </tbody>
+      <tfoot><tr><td colspan="2" style="font-weight:600">মোট</td><td class="mono" style="font-weight:600">${money(totalBazar(m))}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+  </div>`;
+
+  document.getElementById('genRotationBtn').onclick = async ()=>{
+    if(state.members.length===0){ showToast('সদস্য নেই'); return; }
+    const cycleDays = Number(document.getElementById('cycleDays').value)||3;
+    let day=1, idx=state.settings.bazarNextIndex||0;
+    const assignments=[];
+    while(day<=dim){
+      const end = Math.min(day+cycleDays-1, dim);
+      assignments.push({memberId: state.members[idx % state.members.length].id, startDay: day, endDay: end});
+      day = end+1; idx++;
+    }
+    m.bazarRotation = {startIndex: state.settings.bazarNextIndex||0, cycleDays, assignments};
+    state.settings.bazarNextIndex = idx % state.members.length;
+    await sset('settings', state.settings, true);
+    await saveMonth();
+    await addLog('বাজার রোটেশন তৈরি', monthLabel(state.monthKey)+' এর জন্য নতুন পালা তৈরি হয়েছে');
+    renderBazar();
+  };
+  document.querySelectorAll('[data-editassn]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const i = Number(btn.dataset.editassn);
+      const options = state.members.map((mm,idx)=>idx+': '+mm.name).join('\n');
+      const pick = prompt('নতুন দায়িত্বপ্রাপ্ত সদস্যের নাম্বার লিখুন —\n'+options);
+      if(pick===null) return;
+      const idx = Number(pick);
+      if(isNaN(idx) || !state.members[idx]){ showToast('সঠিক নম্বর দিন'); return; }
+      const old = state.members.find(x=>x.id===m.bazarRotation.assignments[i].memberId);
+      m.bazarRotation.assignments[i].memberId = state.members[idx].id;
+      await saveMonth();
+      await addLog('বাজার পালা পরিবর্তন', (old?old.name:'—')+' → '+state.members[idx].name);
+      renderBazar();
+    };
+  });
+  const addBtn = document.getElementById('addBazarBtn');
+  if(addBtn){
+    addBtn.onclick = async ()=>{
+      const memberId = document.getElementById('bzMember').value;
+      const date = document.getElementById('bzDate').value || todayStr();
+      const amount = Number(document.getElementById('bzAmount').value);
+      const note = document.getElementById('bzNote').value.trim();
+      if(!amount){ showToast('পরিমাণ লিখুন'); return; }
+      m.bazarPurchases.push({id:uid(), memberId, date, amount, note});
+      await saveMonth();
+      const mem = state.members.find(x=>x.id===memberId);
+      await addLog('বাজার এন্ট্রি', (mem?mem.name:'—')+': '+money(amount)+' ('+date+')');
+      renderBazar(); showToast('যোগ হয়েছে');
+    };
+  }
+  document.querySelectorAll('[data-delbz]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.delbz;
+      const p = m.bazarPurchases.find(x=>x.id===id);
+      if(b.dataset.confirming !== 'yes'){
+        b.dataset.confirming = 'yes';
+        b.textContent = 'নিশ্চিত?';
+        b.style.color = '#c0392b';
+        b.style.fontWeight = '700';
+        setTimeout(()=>{ if(b.dataset.confirming==='yes'){ b.dataset.confirming='no'; b.textContent='✕'; b.style.fontWeight=''; } }, 3000);
+        return;
+      }
+      m.bazarPurchases = m.bazarPurchases.filter(x=>x.id!==id);
+      await saveMonth();
+      await addLog('বাজার এন্ট্রি মোছা', money(p.amount)+' ('+p.date+') মুছে ফেলা হয়েছে');
+      renderBazar();
+    };
+  });
+}
+
+/* ---------------- EXPENSES ---------------- */
+function renderExpenses(){
+  const m = state.monthData;
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">${monthLabel(state.monthKey)}</span>অন্যান্য খরচ (ওয়াইফাই, বুয়া, সার্ভিস চার্জ ইত্যাদি)</h2>
+    <div class="row">
+      <div class="field" style="flex:2"><label>খরচের নাম</label><input id="expName" placeholder="যেমন: ওয়াইফাই বিল"></div>
+      <div class="field"><label>পরিমাণ (৳)</label><input type="number" id="expAmount"></div>
+      <div class="field"><label>তারিখ</label><input type="date" id="expDate" value="${todayStr()}"></div>
+      <button class="btn" id="addExpBtn">যোগ করুন</button>
+    </div>
+    <hr class="divider">
+    <div class="tablewrap"><table>
+      <thead><tr><th>তারিখ</th><th>নাম</th><th>পরিমাণ</th><th>যোগ করেছেন</th><th></th></tr></thead>
+      <tbody>
+      ${m.expenses.length===0 ? `<tr><td colspan="5" class="empty-note">কোনো খরচ যোগ করা হয়নি</td></tr>` :
+        m.expenses.slice().sort((a,b)=>a.date<b.date?1:-1).map(e=>`
+        <tr><td class="mono">${e.date}</td><td>${escapeHtml(e.name)}</td><td class="mono">${money(e.amount)}</td><td class="muted">${escapeHtml(e.addedBy||'—')}</td>
+        <td><button class="icon-btn" data-delexp="${e.id}">✕</button></td></tr>`).join('')}
+      </tbody>
+      <tfoot><tr><td colspan="2" style="font-weight:600">মোট</td><td class="mono" style="font-weight:600">${money(totalExpenses(m))}</td><td colspan="2"></td></tr></tfoot>
+    </table></div>
+    <p class="muted" style="margin-top:8px">এই খরচ সবার মধ্যে সমানভাবে ভাগ হয়ে "মাসিক হিসাব" ট্যাবে যোগ হবে।</p>
+  </div>`;
+  document.getElementById('addExpBtn').onclick = async ()=>{
+    const name = document.getElementById('expName').value.trim();
+    const amount = Number(document.getElementById('expAmount').value);
+    const date = document.getElementById('expDate').value || todayStr();
+    if(!name || !amount){ showToast('নাম ও পরিমাণ লিখুন'); return; }
+    m.expenses.push({id:uid(), name, amount, date, addedBy: currentUserName()});
+    await saveMonth();
+    await addLog('খরচ যোগ', name+': '+money(amount));
+    renderExpenses(); showToast('যোগ হয়েছে');
+  };
+  document.querySelectorAll('[data-delexp]').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = b.dataset.delexp;
+      const e = m.expenses.find(x=>x.id===id);
+      if(b.dataset.confirming !== 'yes'){
+        b.dataset.confirming = 'yes';
+        b.textContent = 'নিশ্চিত?';
+        b.style.color = '#c0392b';
+        b.style.fontWeight = '700';
+        setTimeout(()=>{ if(b.dataset.confirming==='yes'){ b.dataset.confirming='no'; b.textContent='✕'; b.style.fontWeight=''; } }, 3000);
+        return;
+      }
+      m.expenses = m.expenses.filter(x=>x.id!==id);
+      await saveMonth();
+      await addLog('খরচ মোছা', e.name+': '+money(e.amount)+' মুছে ফেলা হয়েছে');
+      renderExpenses();
+    };
+  });
+}
+
+/* ---------------- REPORT ---------------- */
+function renderReport(){
+  const m = state.monthData;
+  const tBazar = totalBazar(m);
+  const tUnits = totalMealUnits(m);
+  const mealRate = tUnits>0 ? tBazar/tUnits : 0;
+  const tExp = totalExpenses(m);
+  const expShare = state.members.length>0 ? tExp/state.members.length : 0;
+  let grand = 0;
+
+  const rows = state.members.map(mem=>{
+    const units = mealUnitsForMember(mem.id, m);
+    const mealCost = units*mealRate;
+    const rent = rentAmountFor(mem.id, m);
+    const total = rent + mealCost + expShare;
+    grand += total;
+    return {mem, units, mealCost, rent, paid: isRentPaid(mem.id,m), total};
+  });
+
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span class="eyebrow">মাসিক হিসাব</span>${monthLabel(state.monthKey)}</h2>
+    <div class="leader-row"><span class="lbl">মোট বাজার খরচ</span><span class="fill"></span><span class="amt">${money(tBazar)}</span></div>
+    <div class="leader-row"><span class="lbl">মোট মিল ইউনিট</span><span class="fill"></span><span class="amt">${tUnits}</span></div>
+    <div class="leader-row"><span class="lbl">প্রতি মিল ইউনিট রেট</span><span class="fill"></span><span class="amt">${money(mealRate.toFixed(2))}</span></div>
+    <div class="leader-row"><span class="lbl">মোট অন্যান্য খরচ</span><span class="fill"></span><span class="amt">${money(tExp)}</span></div>
+    <div class="leader-row"><span class="lbl">মাথাপিছু অন্যান্য খরচ</span><span class="fill"></span><span class="amt">${money(expShare.toFixed(2))}</span></div>
+  </div>
+  <div class="card">
+    <h2>সদস্যভিত্তিক সম্পূর্ণ হিসাব</h2>
+    ${state.members.length===0 ? `<div class="empty-note">সদস্য নেই</div>` : `
+    <div class="tablewrap"><table>
+      <thead><tr><th>নাম</th><th>ভাড়া</th><th>মিল ইউনিট</th><th>মিল খরচ</th><th>অন্যান্য (ভাগ)</th><th>সর্বমোট</th></tr></thead>
+      <tbody>
+      ${rows.map(r=>`<tr>
+        <td>${escapeHtml(r.mem.name)} ${r.paid?'<span class="stamp-badge stamp-paid" style="transform:none;padding:1px 6px;font-size:9px">✓</span>':''}</td>
+        <td class="mono">${money(r.rent)}</td>
+        <td class="mono">${r.units}</td>
+        <td class="mono">${money(r.mealCost.toFixed(2))}</td>
+        <td class="mono">${money(expShare.toFixed(2))}</td>
+        <td class="mono" style="font-weight:700">${money(r.total.toFixed(2))}</td>
+      </tr>`).join('')}
+      </tbody>
+      <tfoot><tr><td style="font-weight:700">সর্বমোট</td><td colspan="4"></td><td class="mono" style="font-weight:700">${money(grand.toFixed(2))}</td></tr></tfoot>
+    </table></div>`}
+  </div>`;
+}
+
+/* ---------------- LOG ---------------- */
+async function renderLog(){
+  document.getElementById('mainArea').innerHTML = `<div class="card"><h2><span class="eyebrow">অডিট লগ</span>সব পরিবর্তনের ইতিহাস</h2><div id="logList" class="muted">লোড হচ্ছে...</div></div>`;
+  const log = await sget('auditLog', true, []);
+  const el = document.getElementById('logList');
+  if(log.length===0){ el.innerHTML = `<div class="empty-note">এখনো কোনো লগ নেই</div>`; return; }
+  el.innerHTML = log.map(l=>`
+    <div class="logentry">
+      <span class="ts">${new Date(l.ts).toLocaleString('bn-BD')}</span> — <strong>${escapeHtml(l.actor)}</strong> · ${escapeHtml(l.action)}<br>
+      <span>${escapeHtml(l.detail)}</span>
+    </div>`).join('');
+}
+
+init();
+</script>
+</body>
+</html>
