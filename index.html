@@ -424,7 +424,14 @@ function speakBn(text){
     const u = new SpeechSynthesisUtterance(text);
     const bnVoice = pickBnVoice();
     if(bnVoice){ u.voice = bnVoice; u.lang = bnVoice.lang; }
-    else { u.lang = 'bn-BD'; } // best effort even if this device has no installed Bangla voice
+    else {
+      // No installed Bangla voice on this device — still attempt speech with
+      // whatever default voice/engine is available, rather than staying silent.
+      const voices = __voiceCache.length ? __voiceCache : loadVoices();
+      const fallback = voices.find(v=>v.default) || voices[0];
+      if(fallback){ u.voice = fallback; u.lang = fallback.lang; }
+      else { u.lang = 'bn-BD'; }
+    }
     u.rate = 0.95; u.pitch = 1.05; u.volume = 1;
     setTimeout(()=>window.speechSynthesis.speak(u), 30);
   }catch(e){ console.warn('voice failed', e); }
