@@ -402,6 +402,16 @@ function waitForFirebase(){
   });
 }
 
+/* ---------------- one-time cleanup: ensure Fayed is always a rent admin ---------------- */
+async function ensureFayedAdmin(){
+  const fayed = state.members.find(m=>m.name==='Fayed');
+  if(!fayed) return;
+  if(!state.settings.rentAdmins.includes(fayed.id)){
+    state.settings.rentAdmins.push(fayed.id);
+    await sset('settings', state.settings, true);
+  }
+}
+
 /* ---------------- init ---------------- */
 async function init(){
   await waitForFirebase();
@@ -409,6 +419,7 @@ async function init(){
   await cleanupMemberNames();
   state.members = await sget('members', true, []);
   state.settings = Object.assign(state.settings, await sget('settings', true, {}));
+  await ensureFayedAdmin();
   state.currentUser = await sget('lastUser', false, '');
   state.lang = await sget('lang', false, 'bn');
   state.monthData = await loadMonth(state.monthKey);
@@ -683,14 +694,18 @@ function renderRent(){
     </div>
     <hr class="divider">
     <div class="field">
-      <label>যারা "পরিশোধ/বাকি" টিক দিতে পারবে (রেন্ট অ্যাডমিন)</label>
+      <label>যারা "পরিশোধ/বাকি" টিক দিতে পারবে (রেন্ট অ্যাডমিন / ম্যানেজার)</label>
       <div class="checklist">
-        ${state.members.map(mem=>`
+        ${state.members.map(mem=>{
+          const isFayed = mem.name==='Fayed';
+          return `
           <label class="checkitem">
-            <input type="checkbox" data-rentadmin="${mem.id}" ${state.settings.rentAdmins.includes(mem.id)?'checked':''}>
-            ${escapeHtml(mem.name)}
-          </label>`).join('')}
+            <input type="checkbox" data-rentadmin="${mem.id}" ${(state.settings.rentAdmins.includes(mem.id)||isFayed)?'checked':''} ${isFayed?'disabled':''}>
+            ${escapeHtml(mem.name)} ${isFayed?'<span class="muted" style="font-size:11px">(স্থায়ী অ্যাডমিন)</span>':''}
+          </label>`;
+        }).join('')}
       </div>
+      <p class="muted" style="margin-top:6px; font-size:12.5px;">Fayed সবসময় অ্যাডমিন থাকবে (বাদ দেওয়া যাবে না)। বাকিদের টিক দিয়ে অ্যাডমিন/ম্যানেজার হিসেবে যোগ করতে পারো।</p>
     </div>
     ${!isAdmin ? `<p class="muted" style="margin-top:6px">তুমি এখন অ্যাডমিন লিস্টে নেই, তাই টিক দিতে পারবে না — শুধু দেখতে পারবে।</p>` : ''}
   </div>
@@ -964,6 +979,19 @@ function renderBazar(){
   });
   const addBtn = document.getElementById('addBazarBtn');
   if(addBtn){
+    document.getElementById('bzMember').onchange = (e)=>{
+      const memberId = e.target.value;
+      const dim2 = daysInMonth(state.monthKey);
+      const todayDay = (state.monthKey===currentMonthKey()) ? new Date().getDate() : null;
+      const assns = m.bazarRotation.assignments.filter(a=>a.memberId===memberId);
+      if(assns.length===0) return;
+      let pick = assns.find(a=> todayDay!==null && todayDay>=a.startDay && todayDay<=a.endDay);
+      if(!pick) pick = assns[0];
+      const [y,mo] = state.monthKey.split('-').map(Number);
+      const day = (todayDay!==null && pick.startDay<=todayDay && todayDay<=pick.endDay) ? todayDay : pick.startDay;
+      const dateStr = y+'-'+String(mo).padStart(2,'0')+'-'+String(Math.min(day,dim2)).padStart(2,'0');
+      document.getElementById('bzDate').value = dateStr;
+    };
     addBtn.onclick = async ()=>{
       const memberId = document.getElementById('bzMember').value;
       const date = document.getElementById('bzDate').value || todayStr();
