@@ -114,13 +114,16 @@
   button.btn.green{background:linear-gradient(120deg,var(--green),var(--green-dark));}
   button.btn.ghost{background:transparent; color:var(--purple); border:1.5px solid var(--line-strong); box-shadow:none;}
   button.btn.small{padding:6px 12px; font-size:12px;}
+  button.btn:disabled{opacity:0.5; cursor:not-allowed; filter:none;}
   a.smslink{color:var(--red-dark); text-decoration:none; border-bottom:1px dashed var(--red-dark); font-size:12.5px; font-weight:600;}
+  a.walink{color:var(--green-dark); text-decoration:none; border-bottom:1px dashed var(--green-dark); font-size:12.5px; font-weight:600;}
   .stamp-badge{
     display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; letter-spacing:1px;
     padding:4px 10px; border-radius:20px; border:2px solid; text-transform:uppercase;
   }
   .stamp-paid{color:#fff; border-color:var(--green); background:var(--green);}
   .stamp-due{color:#fff; border-color:var(--red); background:var(--red);}
+  .stamp-locked{color:#fff; border-color:var(--ink-soft); background:var(--ink-soft);}
   .muted{color:var(--ink-soft); font-size:12.5px;}
   .divider{border:none; border-top:2px dashed var(--line-strong); margin:14px 0;}
   .tag{display:inline-block; background:#fff; border:1px solid var(--line-strong); border-radius:20px; padding:2px 10px; font-size:11.5px; color:var(--ink-soft);}
@@ -130,8 +133,10 @@
   .toast{
     position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:linear-gradient(120deg,var(--purple),var(--red)); color:#fff;
     padding:10px 20px; border-radius:24px; font-size:13px; z-index:99; opacity:0; pointer-events:none; transition:opacity .25s; box-shadow:0 4px 14px rgba(139,92,246,0.35);
+    display:flex; align-items:center; gap:10px;
   }
-  .toast.show{opacity:1;}
+  .toast.show{opacity:1; pointer-events:auto;}
+  .toast button{background:rgba(255,255,255,0.25); border:none; color:#fff; padding:3px 10px; border-radius:14px; font-size:12px; cursor:pointer; font-weight:700;}
   .funnypop{
     position:fixed; top:14%; left:50%; transform:translate(-50%,-20px) scale(0.85) rotate(-3deg); z-index:200;
     background:linear-gradient(135deg,#FFF6E9,#FFF); border:3px solid var(--gold); border-radius:20px;
@@ -156,11 +161,13 @@
   .modal-card{
     background:var(--paper-card); border-radius:18px; padding:20px; max-width:380px; width:100%;
     box-shadow:0 12px 40px rgba(0,0,0,0.35); border-top:5px solid var(--purple);
+    max-height:88vh; overflow-y:auto;
   }
   .modal-card h3{font-size:17px; margin-bottom:8px;}
   .modal-card .field{margin-bottom:10px;}
   .modal-card input{font-size:18px; letter-spacing:2px;}
   .modal-card .row{gap:8px;}
+  .modal-card.danger{border-top-color:var(--red-dark);}
   .mealslot{border:1.5px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:12px; background:#fff;}
   .mealslot .headrow{display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;}
   .checklist{display:grid; grid-template-columns:repeat(2,1fr); gap:4px;}
@@ -168,6 +175,17 @@
   .checkitem{display:flex; align-items:center; gap:6px; font-size:13.5px; padding:3px 0;}
   .logentry{border-bottom:1px dotted var(--line); padding:8px 0; font-size:12.5px;}
   .logentry .ts{color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; font-size:11px;}
+  .banner-warn{
+    background:linear-gradient(120deg, rgba(255,178,56,0.18), rgba(255,93,143,0.14)); border:1.5px solid var(--gold);
+    border-radius:12px; padding:10px 14px; font-size:13px; margin-bottom:12px; color:var(--ink);
+  }
+  .danger-zone{border:1.5px dashed var(--red-dark); border-radius:14px; padding:14px; margin-top:8px;}
+  .danger-zone h3{font-size:15px; color:var(--red-dark); margin-bottom:8px;}
+  .danger-row{display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px dotted var(--line); flex-wrap:wrap;}
+  .danger-row:last-child{border-bottom:none;}
+  .danger-row .dtext{flex:1; min-width:180px;}
+  .danger-row .dtext .dtitle{font-weight:700; font-size:13.5px;}
+  .danger-row .dtext .dsub{font-size:11.5px; color:var(--ink-soft);}
 </style>
 </head>
 <body>
@@ -194,7 +212,7 @@
 <script type="module">
 /* ---------------- Firebase setup ---------------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ⚠️ এখানে তোমার Firebase প্রজেক্টের কনফিগ বসাও (Firebase Console > Project settings > General > Your apps > SDK setup and configuration)
 const firebaseConfig = {
@@ -207,7 +225,7 @@ const firebaseConfig = {
 };
 const fbApp = initializeApp(firebaseConfig);
 const db = getFirestore(fbApp);
-window.__db = db; window.__fsDoc = doc; window.__fsGet = getDoc; window.__fsSet = setDoc;
+window.__db = db; window.__fsDoc = doc; window.__fsGet = getDoc; window.__fsSet = setDoc; window.__fsDel = deleteDoc;
 window.__fbReady = true;
 document.dispatchEvent(new Event('firebase-ready'));
 </script>
@@ -239,14 +257,42 @@ async function sset(key, value, shared){
     }
   } catch(e){ console.error('storage set failed', key, e); showToast('সেভ করতে সমস্যা হয়েছে, আবার চেষ্টা করুন'); return false; }
 }
+async function sdel(key, shared){
+  try{
+    if(shared){
+      const ref = window.__fsDoc(window.__db, 'mess', key);
+      await window.__fsDel(ref);
+      return true;
+    } else {
+      localStorage.removeItem('mess:'+key);
+      return true;
+    }
+  } catch(e){ console.error('storage delete failed', key, e); return false; }
+}
 </script>
 <script>
 
-function showToast(msg){
+let __undoState = null; // {label, restore: async fn}
+function showToast(msg, undo){
   const t=document.getElementById('toast');
-  t.textContent=msg; t.classList.add('show');
+  t.innerHTML = '';
+  const span = document.createElement('span');
+  span.textContent = msg;
+  t.appendChild(span);
+  if(undo){
+    __undoState = undo;
+    const btn = document.createElement('button');
+    btn.textContent = 'পূর্বাবস্থায় ফেরাও';
+    btn.onclick = async ()=>{
+      if(__undoState){ await __undoState.restore(); __undoState = null; t.classList.remove('show'); }
+    };
+    t.appendChild(btn);
+  } else {
+    __undoState = null;
+  }
+  t.classList.add('show');
   clearTimeout(window.__toastTimer);
-  window.__toastTimer=setTimeout(()=>t.classList.remove('show'), 2200);
+  window.__toastTimer=setTimeout(()=>t.classList.remove('show'), undo ? 5000 : 2200);
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 function money(n){ n = Number(n)||0; return '৳' + n.toLocaleString('en-IN', {maximumFractionDigits:2}); }
@@ -267,7 +313,7 @@ const DICT = {
   'আপনি —':'You —',
   '— নির্বাচন করুন —':'— Select —',
   'ড্যাশবোর্ড':'Dashboard','সদস্য':'Members','ভাড়া':'Rent','মিল':'Meals','বাজার':'Bazar',
-  'অন্যান্য খরচ':'Other Expenses','মাসিক হিসাব':'Monthly Report','লগ':'Log',
+  'অন্যান্য খরচ':'Other Expenses','মাসিক হিসাব':'Monthly Report','লগ':'Log','সেটিংস':'Settings',
   'এই মাস':'This month','মোট বাজার খরচ':'Total bazar cost','মিল রেট / ইউনিট':'Meal rate / unit',
   'ভাড়া পরিশোধ':'Rent paid','আজকের বাজার এর পালা':"Today's bazar duty",'মোট মিল ইউনিট':'Total meal units',
   'ভাড়া বকেয়া':'Rent due','যাদের ভাড়া এখনও বাকি':'Members with unpaid rent',
@@ -306,7 +352,12 @@ const DICT = {
   'মাথাপিছু অন্যান্য খরচ':'Other expense per head','সদস্যভিত্তিক সম্পূর্ণ হিসাব':'Full breakdown by member',
   'সদস্য নেই':'No members','মিল ইউনিট':'Meal units','মিল খরচ':'Meal cost','অন্যান্য (ভাগ)':'Other (share)','সর্বমোট':'Grand total',
   'অডিট লগ':'Audit log','সব পরিবর্তনের ইতিহাস':'History of all changes','লোড হচ্ছে...':'Loading...','এখনো কোনো লগ নেই':'No log entries yet',
-  'কে':'Who','ফোন নম্বর':'Phone number'
+  'কে':'Who','ফোন নম্বর':'Phone number','CSV এক্সপোর্ট করুন':'Export CSV','সব খুঁজুন':'Search all',
+  'মাস লক করুন':'Lock month','মাস আনলক করুন':'Unlock month','এই মাস লক করা আছে — এডিট বন্ধ':'This month is locked — editing disabled',
+  'ডেঞ্জার জোন':'Danger Zone','এই মাসের সব তথ্য মুছুন':"Reset this month's data",
+  'রেন্ট, মিল, বাজার, খরচ সব রিসেট হবে — সদস্য তালিকা থাকবে':'Rent, meals, bazar, expenses reset — members stay',
+  'পুরো অ্যাপ রিসেট করুন (সব মাস + সদস্য)':'Reset entire app (all months + members)',
+  'এটা অপরিবর্তনীয় — সব ডেটা চিরতরে মুছে যাবে':'Irreversible — all data is gone forever'
 };
 function walkTranslate(node){
   if(node.nodeType===3){
@@ -330,17 +381,23 @@ function applyLangIfNeeded(){
 /* ---------------- state ---------------- */
 const state = {
   members: [],
-  settings: { mealWeights:{sokal:0.5, rat:1}, rentDefault:0, bazarNextIndex:0, bazarCycleDays:3, rentAdmins:[] },
+  settings: { mealWeights:{sokal:0.5, rat:1}, rentDefault:0, bazarNextIndex:0, bazarCycleDays:3, rentAdmins:[], bazarBudgetAlert:0 },
   monthKey: currentMonthKey(),
   monthData: null,
   auditLog: [],
   currentUser: '',
   activeTab: 'dashboard',
-  lang: 'bn'
+  lang: 'bn',
+  logFilter: ''
 };
 
 function emptyMonth(){
-  return { rent:{}, meals:{}, bazarPurchases:[], bazarRotation:{startIndex:0, cycleDays:3, assignments:[]}, expenses:[] };
+  return { rent:{}, meals:{}, bazarPurchases:[], bazarRotation:{startIndex:0, cycleDays:3, assignments:[]}, expenses:[], locked:false };
+}
+function isMonthLocked(){ return !!(state.monthData && state.monthData.locked); }
+function guardLocked(){
+  if(isMonthLocked()){ showToast('এই মাস লক করা আছে — এডিট বন্ধ 🔒'); return true; }
+  return false;
 }
 
 async function loadMonth(mk){
@@ -353,7 +410,7 @@ async function saveMonth(){
 
 async function addLog(action, detail){
   let log = await sget('auditLog', true, []);
-  log.unshift({ ts: Date.now(), actor: state.currentUser || 'অজানা', action, detail });
+  log.unshift({ ts: Date.now(), actor: state.currentUser_name || currentUserName() || 'অজানা', action, detail });
   if(log.length > 300) log = log.slice(0,300);
   await sset('auditLog', log, true);
   triggerFunnyPop(action);
@@ -394,9 +451,9 @@ const FUNNY_QUOTES = {
 };
 function funnyCategory(action){
   if(!action) return 'general';
-  if(action.includes('মোছা')) return 'delete';
+  if(action.includes('মোছা') || action.includes('রিসেট')) return 'delete';
   if(action.includes('যোগ')) return 'add';
-  if(action.includes('পরিবর্তন') || action.includes('সেভ') || action.includes('পরিষ্কার')) return 'edit';
+  if(action.includes('পরিবর্তন') || action.includes('সেভ') || action.includes('পরিষ্কার') || action.includes('লক')) return 'edit';
   return 'general';
 }
 function isVoiceOn(){ return localStorage.getItem('mess:voiceOn') !== '0'; }
@@ -425,8 +482,6 @@ function speakBn(text){
     const bnVoice = pickBnVoice();
     if(bnVoice){ u.voice = bnVoice; u.lang = bnVoice.lang; }
     else {
-      // No installed Bangla voice on this device — still attempt speech with
-      // whatever default voice/engine is available, rather than staying silent.
       const voices = __voiceCache.length ? __voiceCache : loadVoices();
       const fallback = voices.find(v=>v.default) || voices[0];
       if(fallback){ u.voice = fallback; u.lang = fallback.lang; }
@@ -456,40 +511,22 @@ function showFunnyPop(cat){
 /* ---------------- seed data (one-time, from WhatsApp poll) ---------------- */
 async function seedInitialData(){
   const existingMembers = await sget('members', true, []);
-  if(existingMembers.length > 0) return; // already set up, don't overwrite
+  if(existingMembers.length > 0) return;
 
   const seedNames = [
-    'Maruf',
-    'Fayed',
-    'Adil Ahmed',
-    'Muhir',
-    'Ahad',
-    'Dip',
-    'Dhonjoy',
-    'Touhid',
-    'Shapon'
+    'Maruf','Fayed','Adil Ahmed','Muhir','Ahad','Dip','Dhonjoy','Touhid','Shapon'
   ];
   const members = seedNames.map(name => ({ id: uid(), name, phone: '' }));
   await sset('members', members, true);
 
-  // only Fayed + whoever is set as mess manager can tick rent paid/unpaid
   const fayed = members.find(m=>m.name==='Fayed');
   state.settings.rentAdmins = fayed ? [fayed.id] : [];
   await sset('settings', state.settings, true);
 
-  // August 2026 bazar rotation, from the WhatsApp poll (days 1-3 and 31 not yet assigned)
   const aug = emptyMonth();
   const dayRanges = [
-    [1,3,null],
-    [4,6,'Maruf'],
-    [7,9,'Fayed'],
-    [10,12,'Adil Ahmed'],
-    [13,15,'Muhir'],
-    [16,18,'Ahad'],
-    [19,21,'Dip'],
-    [22,24,'Dhonjoy'],
-    [25,27,'Touhid'],
-    [28,30,'Shapon']
+    [1,3,null],[4,6,'Maruf'],[7,9,'Fayed'],[10,12,'Adil Ahmed'],[13,15,'Muhir'],
+    [16,18,'Ahad'],[19,21,'Dip'],[22,24,'Dhonjoy'],[25,27,'Touhid'],[28,30,'Shapon']
   ];
   aug.bazarRotation.cycleDays = 3;
   aug.bazarRotation.assignments = dayRanges.map(([start,end,name])=>{
@@ -500,30 +537,18 @@ async function seedInitialData(){
   await addLog('বাজার রোটেশন (পোল থেকে)', 'আগস্ট ২০২৬ এর পালা হোয়াটসঅ্যাপ পোল থেকে সেভ করা হলো। ১-৩ ও ৩১ তারিখ এখনো ঠিক করা হয়নি।');
 }
 
-/* ---------------- one-time cleanup: normalize old messy member names ---------------- */
 async function cleanupMemberNames(){
   const members = await sget('members', true, []);
   if(!members.length) return;
-  // maps a lowercase substring found in the old messy name -> clean name
   const cleanMap = [
-    ['maruf', 'Maruf'],
-    ['fayed', 'Fayed'],
-    ['adil', 'Adil Ahmed'],
-    ['muhir', 'Muhir'],
-    ['ahad', 'Ahad'],
-    ['dip', 'Dip'],
-    ['dhon', 'Dhonjoy'],
-    ['touhid', 'Touhid'],
-    ['shapon', 'Shapon']
+    ['maruf', 'Maruf'],['fayed', 'Fayed'],['adil', 'Adil Ahmed'],['muhir', 'Muhir'],
+    ['ahad', 'Ahad'],['dip', 'Dip'],['dhon', 'Dhonjoy'],['touhid', 'Touhid'],['shapon', 'Shapon']
   ];
   let changed = false;
   const updated = members.map(m=>{
     const lower = (m.name||'').toLowerCase();
     const hit = cleanMap.find(([key])=> lower.includes(key));
-    if(hit && m.name !== hit[1]){
-      changed = true;
-      return Object.assign({}, m, { name: hit[1] });
-    }
+    if(hit && m.name !== hit[1]){ changed = true; return Object.assign({}, m, { name: hit[1] }); }
     return m;
   });
   if(changed){
@@ -539,7 +564,6 @@ function waitForFirebase(){
   });
 }
 
-/* ---------------- one-time cleanup: ensure Fayed is always a rent admin ---------------- */
 async function ensureFayedAdmin(){
   const fayed = state.members.find(m=>m.name==='Fayed');
   if(!fayed) return;
@@ -569,9 +593,7 @@ async function init(){
     state.lang = state.lang==='bn' ? 'en' : 'bn';
     await sset('lang', state.lang, false);
     document.getElementById('langToggle').textContent = state.lang==='bn' ? 'EN' : 'বাং';
-    buildUserSelect();
-    buildNav();
-    render();
+    buildUserSelect(); buildNav(); render();
   };
   const vBtn = document.getElementById('voiceToggle');
   vBtn.textContent = isVoiceOn() ? '🔊' : '🔇';
@@ -736,13 +758,14 @@ const TABS = [
   ['bazar','বাজার','🛒'],
   ['expenses','অন্যান্য খরচ','💸'],
   ['report','মাসিক হিসাব','📊'],
-  ['log','লগ','📜']
+  ['log','লগ','📜'],
+  ['settings','সেটিংস','⚙️']
 ];
 function buildNav(){
   const nav=document.getElementById('tabNav');
-  const tabs = TABS.filter(([id])=> id!=='log' || isFayedUser());
+  const tabs = TABS.filter(([id])=> (id!=='log' && id!=='settings') || isFayedUser());
   nav.innerHTML = tabs.map(([id,label,emoji])=>`<button data-tab="${id}" class="${state.activeTab===id?'active':''}"><span aria-hidden="true">${emoji}</span> ${label}</button>`).join('');
-  if(state.activeTab==='log' && !isFayedUser()) state.activeTab='dashboard';
+  if((state.activeTab==='log' || state.activeTab==='settings') && !isFayedUser()) state.activeTab='dashboard';
   nav.querySelectorAll('button').forEach(b=>{
     b.onclick = ()=>{ state.activeTab=b.dataset.tab; buildNav(); render(); };
   });
@@ -750,6 +773,42 @@ function buildNav(){
 
 function escapeHtml(s){
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- CSV export helper ---------------- */
+function downloadCsv(filename, rows){
+  const csv = rows.map(r=>r.map(cell=>{
+    const s = String(cell==null?'':cell);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function exportMonthlyReportCsv(){
+  const m = state.monthData;
+  const tBazar = totalBazar(m);
+  const tUnits = totalMealUnits(m);
+  const mealRate = tUnits>0 ? tBazar/tUnits : 0;
+  const tExp = totalExpenses(m);
+  const expShare = state.members.length>0 ? tExp/state.members.length : 0;
+  const rows = [['নাম','ভাড়া','মিল ইউনিট','মিল খরচ','অন্যান্য (ভাগ)','সর্বমোট','ভাড়া স্ট্যাটাস']];
+  state.members.forEach(mem=>{
+    const units = mealUnitsForMember(mem.id, m);
+    const mealCost = units*mealRate;
+    const rent = rentAmountFor(mem.id, m);
+    const total = rent + mealCost + expShare;
+    rows.push([mem.name, rent, units, mealCost.toFixed(2), expShare.toFixed(2), total.toFixed(2), isRentPaid(mem.id,m)?'পরিশোধ':'বাকি']);
+  });
+  rows.push([]);
+  rows.push(['মোট বাজার খরচ', tBazar]);
+  rows.push(['মিল রেট/ইউনিট', mealRate.toFixed(2)]);
+  rows.push(['মোট অন্যান্য খরচ', tExp]);
+  downloadCsv('mess-hisab-'+state.monthKey+'.csv', rows);
+  showToast('CSV ডাউনলোড হয়েছে');
 }
 
 /* ---------------- render dispatcher ---------------- */
@@ -762,7 +821,8 @@ function render(){
     bazar: renderBazar,
     expenses: renderExpenses,
     report: renderReport,
-    log: renderLog
+    log: renderLog,
+    settings: renderSettings
   };
   map[state.activeTab]();
 }
@@ -844,7 +904,12 @@ function renderDashboard(){
     if(assn){ const mem = state.members.find(x=>x.id===assn.memberId); if(mem) onDutyName = mem.name; }
   }
 
+  const budget = Number(state.settings.bazarBudgetAlert||0);
+  const budgetWarn = budget>0 && tBazar >= budget*0.8;
+
   document.getElementById('mainArea').innerHTML = `
+  ${isMonthLocked() ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
+  ${budgetWarn ? `<div class="banner-warn">⚠️ বাজার খরচ বাজেটের ${Math.round(tBazar/budget*100)}% ছুঁয়ে ফেলেছে (বাজেট ${money(budget)})</div>` : ''}
   <div class="card">
     <h2><span aria-hidden="true">📊</span> <span class="eyebrow">এই মাস</span>${monthLabel(state.monthKey)}</h2>
     <div class="grid cols-3">
@@ -865,7 +930,10 @@ function renderDashboard(){
         <td>${escapeHtml(u.name)}</td>
         <td class="mono">${escapeHtml(u.phone||'—')}</td>
         <td><span class="stamp-badge stamp-due">বাকি</span></td>
-        <td>${u.phone ? `<a class="smslink" href="sms:${encodeURIComponent(u.phone)}?body=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(rentAmountFor(u.id,m))+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">রিমাইন্ডার পাঠান →</a>` : `<span class="muted">নম্বর নেই</span>`}</td>
+        <td>
+          ${u.phone ? `<a class="smslink" href="sms:${encodeURIComponent(u.phone)}?body=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(rentAmountFor(u.id,m))+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">SMS →</a>` : `<span class="muted">নম্বর নেই</span>`}
+          ${u.phone ? ` · <a class="walink" target="_blank" href="https://wa.me/${encodeURIComponent(u.phone.replace(/^0/,'88'))}?text=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(rentAmountFor(u.id,m))+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">WhatsApp →</a>` : ''}
+        </td>
       </tr>`).join('')}
       </tbody></table>
       <button class="btn ghost small" style="margin-top:10px" id="copyReminderBtn">সবার নাম কপি করুন (গ্রুপে পাঠানোর জন্য)</button>`
@@ -913,6 +981,8 @@ function renderMembers(){
     const name = document.getElementById('mName').value.trim();
     const phone = document.getElementById('mPhone').value.trim();
     if(!name){ showToast('নাম লিখুন'); return; }
+    if(phone && !/^01\d{9}$/.test(phone)){ showToast('ফোন নম্বর সঠিক ফরম্যাটে দিন (01XXXXXXXXX)'); return; }
+    if(state.members.some(m=>m.name.toLowerCase()===name.toLowerCase())){ showToast('এই নামে একজন সদস্য আগে থেকেই আছে'); return; }
     state.members.push({id:uid(), name, phone});
     await sset('members', state.members, true);
     await addLog('সদস্য যোগ', name+' যোগ করা হয়েছে');
@@ -927,6 +997,7 @@ function renderMembers(){
       const old = mem.phone || '';
       const val = inp.value.trim();
       if(old===val) return;
+      if(val && !/^01\d{9}$/.test(val)){ showToast('ফোন নম্বর সঠিক ফরম্যাটে দিন (01XXXXXXXXX)'); inp.value = old; return; }
       mem.phone = val;
       await sset('members', state.members, true);
       await addLog('ফোন নম্বর পরিবর্তন', mem.name+': '+(old||'—')+' → '+(val||'—'));
@@ -945,11 +1016,18 @@ function renderMembers(){
         setTimeout(()=>{ if(b.dataset.confirming==='yes'){ b.dataset.confirming='no'; b.textContent='✕'; b.style.fontWeight=''; } }, 3000);
         return;
       }
+      const prevMembers = state.members.slice();
       state.members = state.members.filter(x=>x.id!==id);
       await sset('members', state.members, true);
       await addLog('সদস্য মোছা', mem.name+' মুছে ফেলা হয়েছে');
       buildUserSelect();
       renderMembers();
+      showToast(mem.name+' মুছে ফেলা হয়েছে', { label:'restore-member', restore: async ()=>{
+        state.members = prevMembers;
+        await sset('members', state.members, true);
+        await addLog('সদস্য পুনরুদ্ধার', mem.name+' ফিরিয়ে আনা হলো');
+        buildUserSelect(); renderMembers();
+      }});
     };
   });
 }
@@ -960,13 +1038,15 @@ function renderRent(){
   const today = new Date();
   const showReminder = today.getDate() >= 9;
   const isAdmin = state.settings.rentAdmins.includes(state.currentUser);
+  const locked = isMonthLocked();
   document.getElementById('mainArea').innerHTML = `
   <div class="card">
     <h2><span aria-hidden="true">🏦</span> <span class="eyebrow">মাস</span>${monthLabel(state.monthKey)} — ভাড়া</h2>
+    ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
     <div class="row">
       <div class="field"><label>মাস পরিবর্তন</label><input type="month" id="monthPicker" value="${state.monthKey}"></div>
-      <div class="field"><label>ডিফল্ট ভাড়া (প্রতি মাথা)</label><input type="number" id="rentDefault" value="${state.settings.rentDefault}"></div>
-      <button class="btn ghost small" id="saveDefaultBtn">সেভ করুন</button>
+      <div class="field"><label>ডিফল্ট ভাড়া (প্রতি মাথা)</label><input type="number" id="rentDefault" value="${state.settings.rentDefault}" ${locked?'disabled':''}></div>
+      <button class="btn ghost small" id="saveDefaultBtn" ${locked?'disabled':''}>সেভ করুন</button>
     </div>
     <hr class="divider">
     ${isFayedUser() ? `
@@ -997,11 +1077,12 @@ function renderRent(){
         const amt = rentAmountFor(mem.id,m);
         return `<tr>
           <td>${escapeHtml(mem.name)}</td>
-          <td>${isAdmin ? `<input class="mono rentAmt" data-id="${mem.id}" type="number" value="${amt}" style="max-width:110px">` : `<span class="mono">${money(amt)}</span>`}</td>
+          <td>${isAdmin && !locked ? `<input class="mono rentAmt" data-id="${mem.id}" type="number" value="${amt}" style="max-width:110px">` : `<span class="mono">${money(amt)}</span>`}</td>
           <td>${paid?`<span class="stamp-badge stamp-paid">পরিশোধ</span>`:`<span class="stamp-badge stamp-due">বাকি</span>`}</td>
           <td>
-            ${isAdmin ? `<button class="btn small ${paid?'ghost':'green'}" data-toggle="${mem.id}">${paid?'বাকি করুন':'পরিশোধ চিহ্নিত করুন'}</button>` : ''}
+            ${isAdmin && !locked ? `<button class="btn small ${paid?'ghost':'green'}" data-toggle="${mem.id}">${paid?'বাকি করুন':'পরিশোধ চিহ্নিত করুন'}</button>` : ''}
             ${(!paid && showReminder && mem.phone) ? `<a class="smslink" style="margin-left:8px" href="sms:${encodeURIComponent(mem.phone)}?body=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(amt)+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">SMS →</a>` : ''}
+            ${(!paid && showReminder && mem.phone) ? ` <a class="walink" target="_blank" href="https://wa.me/${encodeURIComponent(mem.phone.replace(/^0/,'88'))}?text=${encodeURIComponent('ভাই/আপু, '+monthLabel(state.monthKey)+' মাসের মেসের ভাড়া '+money(amt)+' এখনও জমা হয়নি। ১০ তারিখের মধ্যে দিয়ে দিও।')}">WA →</a>` : ''}
           </td>
         </tr>`;
       }).join('')}
@@ -1026,7 +1107,9 @@ function renderRent(){
     state.monthData = await loadMonth(state.monthKey);
     render();
   };
-  document.getElementById('saveDefaultBtn').onclick = async ()=>{
+  const saveDefBtn = document.getElementById('saveDefaultBtn');
+  if(saveDefBtn) saveDefBtn.onclick = async ()=>{
+    if(guardLocked()) return;
     const old = state.settings.rentDefault;
     const val = Number(document.getElementById('rentDefault').value)||0;
     state.settings.rentDefault = val;
@@ -1036,10 +1119,12 @@ function renderRent(){
   };
   document.querySelectorAll('.rentAmt').forEach(inp=>{
     inp.onchange = async ()=>{
+      if(guardLocked()){ renderRent(); return; }
       const id = inp.dataset.id;
       const mem = state.members.find(x=>x.id===id);
       const old = rentAmountFor(id, m);
       const val = Number(inp.value)||0;
+      if(val < 0){ showToast('ঋণাত্মক সংখ্যা দেওয়া যাবে না'); renderRent(); return; }
       m.rent[id] = Object.assign({}, m.rent[id], {amount: val});
       await saveMonth();
       await addLog('ভাড়ার পরিমাণ পরিবর্তন', mem.name+': '+old+' → '+val+' ('+monthLabel(state.monthKey)+')');
@@ -1048,6 +1133,7 @@ function renderRent(){
   });
   document.querySelectorAll('[data-toggle]').forEach(btn=>{
     btn.onclick = async ()=>{
+      if(guardLocked()) return;
       const id = btn.dataset.toggle;
       const mem = state.members.find(x=>x.id===id);
       const wasPaid = isRentPaid(id,m);
@@ -1062,6 +1148,7 @@ function renderRent(){
 /* ---------------- MEALS ---------------- */
 function renderMeals(){
   const m = state.monthData;
+  const locked = isMonthLocked();
   if(!state._mealDate) state._mealDate = todayStr();
   if(!state._guestOpen) state._guestOpen = {sokal:false, rat:false};
   const date = state._mealDate;
@@ -1075,23 +1162,23 @@ function renderMeals(){
       <div class="headrow">
         <strong>${label} <span class="muted mono">(ওজন ${weight})</span></strong>
         <label style="display:flex;align-items:center;gap:6px;font-size:13px;">
-          <input type="checkbox" data-slotactive="${slotKey}" ${slot.active?'checked':''}> মিল হচ্ছে
+          <input type="checkbox" data-slotactive="${slotKey}" ${slot.active?'checked':''} ${locked?'disabled':''}> মিল হচ্ছে
         </label>
       </div>
       ${slot.active ? `<div class="checklist">
         ${state.members.map(mem=>`
           <label class="checkitem">
-            <input type="checkbox" data-slot="${slotKey}" data-mem="${mem.id}" ${slot.members[mem.id]?'checked':''}>
+            <input type="checkbox" data-slot="${slotKey}" data-mem="${mem.id}" ${slot.members[mem.id]?'checked':''} ${locked?'disabled':''}>
             ${escapeHtml(mem.name)}
           </label>`).join('')}
       </div>
       <hr class="divider" style="margin:10px 0">
       ${slot.guests.length>0 ? slot.guests.map((g,i)=>{
         const host = state.members.find(x=>x.id===g.hostMemberId);
-        return `<div class="leader-row"><span class="lbl">${escapeHtml(host?host.name:'—')} এর ${g.count} জন গেস্ট${g.note?' ('+escapeHtml(g.note)+')':''}</span><span class="fill"></span><button class="icon-btn" data-delguest="${slotKey}:${i}" style="font-size:12px">✕</button></div>`;
+        return `<div class="leader-row"><span class="lbl">${escapeHtml(host?host.name:'—')} এর ${g.count} জন গেস্ট${g.note?' ('+escapeHtml(g.note)+')':''}</span><span class="fill"></span><button class="icon-btn" data-delguest="${slotKey}:${i}" style="font-size:12px" ${locked?'disabled':''}>✕</button></div>`;
       }).join('') : ''}
-      <button type="button" class="btn ghost small" data-guesttoggle="${slotKey}" style="font-size:12.5px; padding:4px 10px;">${state._guestOpen && state._guestOpen[slotKey] ? '− গেস্ট মিল ফর্ম বন্ধ করুন' : '+ গেস্ট মিল যোগ করুন ▾'}</button>
-      ${state._guestOpen && state._guestOpen[slotKey] ? `
+      ${!locked ? `<button type="button" class="btn ghost small" data-guesttoggle="${slotKey}" style="font-size:12.5px; padding:4px 10px;">${state._guestOpen && state._guestOpen[slotKey] ? '− গেস্ট মিল ফর্ম বন্ধ করুন' : '+ গেস্ট মিল যোগ করুন ▾'}</button>` : ''}
+      ${(!locked && state._guestOpen && state._guestOpen[slotKey]) ? `
       <div class="row" style="margin-top:6px">
         <div class="field" style="min-width:100px"><label>মেহমান কার</label>
           <select data-guesthost="${slotKey}">${state.members.map(mm=>`<option value="${mm.id}">${escapeHtml(mm.name)}</option>`).join('')}</select>
@@ -1107,11 +1194,12 @@ function renderMeals(){
   document.getElementById('mainArea').innerHTML = `
   <div class="card">
     <h2><span aria-hidden="true">🍛</span> <span class="eyebrow">দৈনিক মিল</span>মিল এন্ট্রি</h2>
+    ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
     <div class="field" style="max-width:220px"><label>তারিখ</label><input type="date" id="mealDate" value="${date}"></div>
     ${state.members.length===0 ? `<div class="empty-note">প্রথমে সদস্য যোগ করুন</div>` : `
       ${slotHtml('sokal','সকাল', state.settings.mealWeights.sokal)}
       ${slotHtml('rat','রাত', state.settings.mealWeights.rat)}
-      <button class="btn" id="saveMealBtn">এই দিনের মিল সেভ করুন</button>
+      ${!locked ? `<button class="btn" id="saveMealBtn">এই দিনের মিল সেভ করুন</button>` : ''}
     `}
   </div>
   <div class="card">
@@ -1124,6 +1212,7 @@ function renderMeals(){
   </div>`;
 
   document.getElementById('mealDate').onchange = (e)=>{ state._mealDate = e.target.value; renderMeals(); };
+  if(locked) return;
   document.querySelectorAll('[data-slotactive]').forEach(cb=>{
     cb.onchange = ()=>{ day[cb.dataset.slotactive].active = cb.checked; renderMeals(); };
   });
@@ -1148,6 +1237,7 @@ function renderMeals(){
       const noteInp = document.querySelector(`[data-guestnote="${slot}"]`);
       const count = Number(countInp.value)||1;
       if(!hostSel.value){ showToast('মেহমান কার নির্বাচন করুন'); return; }
+      if(count<=0){ showToast('সংখ্যা ১ বা তার বেশি হতে হবে'); return; }
       day[slot].guests.push({hostMemberId: hostSel.value, count, note: noteInp.value.trim()});
       renderMeals();
     };
@@ -1176,13 +1266,18 @@ function renderMeals(){
 function renderBazar(){
   const m = state.monthData;
   const dim = daysInMonth(state.monthKey);
+  const locked = isMonthLocked();
+  const budget = Number(state.settings.bazarBudgetAlert||0);
+  const tBazarNow = totalBazar(m);
 
   document.getElementById('mainArea').innerHTML = `
+  ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
+  ${budget>0 && tBazarNow>=budget*0.8 ? `<div class="banner-warn">⚠️ বাজার খরচ বাজেটের ${Math.round(tBazarNow/budget*100)}% (${money(tBazarNow)} / ${money(budget)})</div>` : ''}
   <div class="card">
     <h2><span aria-hidden="true">🔄</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন)</h2>
     <div class="row">
-      <div class="field"><label>একজন কত দিন করে বাজার করবে</label><input type="number" id="cycleDays" value="${m.bazarRotation.cycleDays || state.settings.bazarCycleDays}" min="1" max="15"></div>
-      <button class="btn ghost small" id="genRotationBtn">অটো জেনারেট করুন</button>
+      <div class="field"><label>একজন কত দিন করে বাজার করবে</label><input type="number" id="cycleDays" value="${m.bazarRotation.cycleDays || state.settings.bazarCycleDays}" min="1" max="15" ${locked?'disabled':''}></div>
+      <button class="btn ghost small" id="genRotationBtn" ${locked?'disabled':''}>অটো জেনারেট করুন</button>
     </div>
     ${m.bazarRotation.assignments.length===0 ? `<div class="empty-note">এখনো পালা তৈরি হয়নি — অটো জেনারেট করুন অথবা সদস্য যোগ করুন</div>` : `
     <div class="tablewrap"><table><thead><tr><th>দিন</th><th>দায়িত্বে</th><th></th></tr></thead><tbody>
@@ -1190,14 +1285,14 @@ function renderBazar(){
         const mem = state.members.find(x=>x.id===a.memberId);
         return `<tr><td>${a.startDay===a.endDay ? a.startDay : a.startDay+'–'+a.endDay}</td>
           <td>${mem?escapeHtml(mem.name):'—'}</td>
-          <td><button class="btn small ghost" data-editassn="${i}">পরিবর্তন</button></td></tr>`;
+          <td>${!locked ? `<button class="btn small ghost" data-editassn="${i}">পরিবর্তন</button>` : ''}</td></tr>`;
       }).join('')}
     </tbody></table></div>`}
   </div>
 
   <div class="card">
     <h2><span aria-hidden="true">🛒</span> বাজারের খরচ যোগ করুন</h2>
-    ${state.members.length===0 ? `<div class="empty-note">প্রথমে সদস্য যোগ করুন</div>` : `
+    ${state.members.length===0 ? `<div class="empty-note">প্রথমে সদস্য যোগ করুন</div>` : (locked ? '' : `
     <div class="row">
       <div class="field"><label>কে বাজার করেছে</label>
         <select id="bzMember">${state.members.map(mm=>`<option value="${mm.id}">${escapeHtml(mm.name)}</option>`).join('')}</select>
@@ -1206,7 +1301,7 @@ function renderBazar(){
       <div class="field"><label>পরিমাণ (৳) <span class="muted" style="font-size:11px">— পুরো পালার মোট খরচ</span></label><input type="number" id="bzAmount" placeholder="0"></div>
       <div class="field" style="flex:2"><label>নোট (কি বাজার হলো)</label><input id="bzNote" placeholder="যেমন: মাছ, সবজি"></div>
       <button class="btn" id="addBazarBtn">যোগ করুন</button>
-    </div>`}
+    </div>`)}
     <hr class="divider">
     <div class="tablewrap"><table>
       <thead><tr><th>তারিখ</th><th>কে</th><th>পরিমাণ</th><th>নোট</th><th></th></tr></thead>
@@ -1215,13 +1310,14 @@ function renderBazar(){
         m.bazarPurchases.slice().sort((a,b)=>a.date<b.date?1:-1).map(p=>{
           const mem = state.members.find(x=>x.id===p.memberId);
           return `<tr><td class="mono">${p.date}</td><td>${mem?escapeHtml(mem.name):'—'}</td><td class="mono">${money(p.amount)}</td><td>${escapeHtml(p.note||'')}</td>
-          <td><button class="icon-btn" data-delbz="${p.id}">✕</button></td></tr>`;
+          <td>${!locked ? `<button class="icon-btn" data-delbz="${p.id}">✕</button>` : ''}</td></tr>`;
         }).join('')}
       </tbody>
       <tfoot><tr><td colspan="2" style="font-weight:600">মোট</td><td class="mono" style="font-weight:600">${money(totalBazar(m))}</td><td colspan="2"></td></tr></tfoot>
     </table></div>
   </div>`;
 
+  if(locked) return;
   document.getElementById('genRotationBtn').onclick = async ()=>{
     if(state.members.length===0){ showToast('সদস্য নেই'); return; }
     const cycleDays = Number(document.getElementById('cycleDays').value)||3;
@@ -1280,12 +1376,15 @@ function renderBazar(){
       const date = document.getElementById('bzDate').value || todayStr();
       const amount = Number(document.getElementById('bzAmount').value);
       const note = document.getElementById('bzNote').value.trim();
-      if(!amount){ showToast('পরিমাণ লিখুন'); return; }
+      if(!amount || amount<=0){ showToast('সঠিক পরিমাণ লিখুন (০ এর বেশি)'); return; }
       m.bazarPurchases.push({id:uid(), memberId, date, amount, note});
       await saveMonth();
       const mem = state.members.find(x=>x.id===memberId);
       await addLog('বাজার এন্ট্রি', (mem?mem.name:'—')+': '+money(amount)+' ('+date+')');
       renderBazar(); showToast('যোগ হয়েছে');
+      const newTotal = totalBazar(m);
+      const budgetVal = Number(state.settings.bazarBudgetAlert||0);
+      if(budgetVal>0 && newTotal>=budgetVal*0.8){ showToast('⚠️ বাজার খরচ বাজেটের কাছাকাছি চলে এসেছে!'); }
     };
   }
   document.querySelectorAll('[data-delbz]').forEach(b=>{
@@ -1304,6 +1403,12 @@ function renderBazar(){
       await saveMonth();
       await addLog('বাজার এন্ট্রি মোছা', money(p.amount)+' ('+p.date+') মুছে ফেলা হয়েছে');
       renderBazar();
+      showToast('মুছে ফেলা হয়েছে', { label:'restore-bz', restore: async ()=>{
+        m.bazarPurchases.push(p);
+        await saveMonth();
+        await addLog('বাজার এন্ট্রি পুনরুদ্ধার', money(p.amount)+' ('+p.date+') ফিরিয়ে আনা হলো');
+        renderBazar();
+      }});
     };
   });
 }
@@ -1311,15 +1416,17 @@ function renderBazar(){
 /* ---------------- EXPENSES ---------------- */
 function renderExpenses(){
   const m = state.monthData;
+  const locked = isMonthLocked();
   document.getElementById('mainArea').innerHTML = `
   <div class="card">
     <h2><span aria-hidden="true">💸</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>অন্যান্য খরচ (ওয়াইফাই, বুয়া, সার্ভিস চার্জ ইত্যাদি)</h2>
-    <div class="row">
+    ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
+    ${!locked ? `<div class="row">
       <div class="field" style="flex:2"><label>খরচের নাম</label><input id="expName" placeholder="যেমন: ওয়াইফাই বিল"></div>
       <div class="field"><label>পরিমাণ (৳)</label><input type="number" id="expAmount"></div>
       <div class="field"><label>তারিখ</label><input type="date" id="expDate" value="${todayStr()}"></div>
       <button class="btn" id="addExpBtn">যোগ করুন</button>
-    </div>
+    </div>` : ''}
     <hr class="divider">
     <div class="tablewrap"><table>
       <thead><tr><th>তারিখ</th><th>নাম</th><th>পরিমাণ</th><th>যোগ করেছেন</th><th></th></tr></thead>
@@ -1327,17 +1434,18 @@ function renderExpenses(){
       ${m.expenses.length===0 ? `<tr><td colspan="5" class="empty-note">কোনো খরচ যোগ করা হয়নি</td></tr>` :
         m.expenses.slice().sort((a,b)=>a.date<b.date?1:-1).map(e=>`
         <tr><td class="mono">${e.date}</td><td>${escapeHtml(e.name)}</td><td class="mono">${money(e.amount)}</td><td class="muted">${escapeHtml(e.addedBy||'—')}</td>
-        <td><button class="icon-btn" data-delexp="${e.id}">✕</button></td></tr>`).join('')}
+        <td>${!locked ? `<button class="icon-btn" data-delexp="${e.id}">✕</button>` : ''}</td></tr>`).join('')}
       </tbody>
       <tfoot><tr><td colspan="2" style="font-weight:600">মোট</td><td class="mono" style="font-weight:600">${money(totalExpenses(m))}</td><td colspan="2"></td></tr></tfoot>
     </table></div>
     <p class="muted" style="margin-top:8px">এই খরচ সবার মধ্যে সমানভাবে ভাগ হয়ে "মাসিক হিসাব" ট্যাবে যোগ হবে।</p>
   </div>`;
+  if(locked) return;
   document.getElementById('addExpBtn').onclick = async ()=>{
     const name = document.getElementById('expName').value.trim();
     const amount = Number(document.getElementById('expAmount').value);
     const date = document.getElementById('expDate').value || todayStr();
-    if(!name || !amount){ showToast('নাম ও পরিমাণ লিখুন'); return; }
+    if(!name || !amount || amount<=0){ showToast('নাম ও সঠিক পরিমাণ লিখুন'); return; }
     m.expenses.push({id:uid(), name, amount, date, addedBy: currentUserName()});
     await saveMonth();
     await addLog('খরচ যোগ', name+': '+money(amount));
@@ -1359,6 +1467,12 @@ function renderExpenses(){
       await saveMonth();
       await addLog('খরচ মোছা', e.name+': '+money(e.amount)+' মুছে ফেলা হয়েছে');
       renderExpenses();
+      showToast('মুছে ফেলা হয়েছে', { label:'restore-exp', restore: async ()=>{
+        m.expenses.push(e);
+        await saveMonth();
+        await addLog('খরচ পুনরুদ্ধার', e.name+' ফিরিয়ে আনা হলো');
+        renderExpenses();
+      }});
     };
   });
 }
@@ -1384,7 +1498,9 @@ function renderReport(){
 
   document.getElementById('mainArea').innerHTML = `
   <div class="card">
-    <h2><span aria-hidden="true">📈</span> <span class="eyebrow">মাসিক হিসাব</span>${monthLabel(state.monthKey)}</h2>
+    <h2><span aria-hidden="true">📈</span> <span class="eyebrow">মাসিক হিসাব</span>${monthLabel(state.monthKey)}
+      <button class="btn ghost small" id="exportCsvBtn" style="float:right; margin-top:-4px;">⬇️ CSV এক্সপোর্ট করুন</button>
+    </h2>
     <div class="leader-row"><span class="lbl">মোট বাজার খরচ</span><span class="fill"></span><span class="amt">${money(tBazar)}</span></div>
     <div class="leader-row"><span class="lbl">মোট মিল ইউনিট</span><span class="fill"></span><span class="amt">${tUnits}</span></div>
     <div class="leader-row"><span class="lbl">প্রতি মিল ইউনিট রেট</span><span class="fill"></span><span class="amt">${money(mealRate.toFixed(2))}</span></div>
@@ -1409,20 +1525,174 @@ function renderReport(){
       <tfoot><tr><td style="font-weight:700">সর্বমোট</td><td colspan="4"></td><td class="mono" style="font-weight:700">${money(grand.toFixed(2))}</td></tr></tfoot>
     </table></div>`}
   </div>`;
+  document.getElementById('exportCsvBtn').onclick = exportMonthlyReportCsv;
 }
 
 /* ---------------- LOG ---------------- */
 async function renderLog(){
   if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
-  document.getElementById('mainArea').innerHTML = `<div class="card"><h2><span aria-hidden="true">📜</span> <span class="eyebrow">অডিট লগ</span>সব পরিবর্তনের ইতিহাস</h2><div id="logList" class="muted">লোড হচ্ছে...</div></div>`;
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span aria-hidden="true">📜</span> <span class="eyebrow">অডিট লগ</span>সব পরিবর্তনের ইতিহাস</h2>
+    <div class="field" style="max-width:280px"><label>সব খুঁজুন (নাম / অ্যাকশন / টেক্সট)</label><input id="logSearch" value="${escapeHtml(state.logFilter||'')}" placeholder="যেমন: Fayed, বাজার, মোছা"></div>
+    <div id="logList" class="muted">লোড হচ্ছে...</div>
+  </div>`;
   const log = await sget('auditLog', true, []);
-  const el = document.getElementById('logList');
-  if(log.length===0){ el.innerHTML = `<div class="empty-note">এখনো কোনো লগ নেই</div>`; return; }
-  el.innerHTML = log.map(l=>`
-    <div class="logentry">
-      <span class="ts">${new Date(l.ts).toLocaleString('bn-BD')}</span> — <strong>${escapeHtml(l.actor)}</strong> · ${escapeHtml(l.action)}<br>
-      <span>${escapeHtml(l.detail)}</span>
-    </div>`).join('');
+  const searchInp = document.getElementById('logSearch');
+  const renderList = ()=>{
+    const q = (state.logFilter||'').toLowerCase().trim();
+    const filtered = q ? log.filter(l=> (l.actor+' '+l.action+' '+l.detail).toLowerCase().includes(q)) : log;
+    const el = document.getElementById('logList');
+    if(filtered.length===0){ el.innerHTML = `<div class="empty-note">এখনো কোনো লগ নেই</div>`; return; }
+    el.innerHTML = filtered.map(l=>`
+      <div class="logentry">
+        <span class="ts">${new Date(l.ts).toLocaleString('bn-BD')}</span> — <strong>${escapeHtml(l.actor)}</strong> · ${escapeHtml(l.action)}<br>
+        <span>${escapeHtml(l.detail)}</span>
+      </div>`).join('');
+  };
+  renderList();
+  searchInp.oninput = (e)=>{ state.logFilter = e.target.value; renderList(); };
+}
+
+/* ---------------- SETTINGS (Fayed only) ---------------- */
+function renderSettings(){
+  if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
+  const m = state.monthData;
+  const locked = isMonthLocked();
+  document.getElementById('mainArea').innerHTML = `
+  <div class="card">
+    <h2><span aria-hidden="true">⚙️</span> <span class="eyebrow">সেটিংস</span>সাধারণ সেটিংস</h2>
+    <div class="row">
+      <div class="field"><label>বাজার বাজেট এলার্ট (মাসিক, ৳ — ০ দিলে বন্ধ)</label><input type="number" id="budgetAlert" value="${state.settings.bazarBudgetAlert||0}"></div>
+      <button class="btn ghost small" id="saveBudgetBtn">সেভ করুন</button>
+    </div>
+    <hr class="divider">
+    <div class="row" style="align-items:center;">
+      <div class="field" style="flex:1; min-width:200px;">
+        <label>মাস লক (${monthLabel(state.monthKey)})</label>
+        <p class="muted" style="font-size:12px; margin:0;">লক করলে এই মাসের রেন্ট/মিল/বাজার/খরচ এডিট বন্ধ হয়ে যাবে — শুধু দেখা যাবে।</p>
+      </div>
+      <button class="btn ${locked?'ghost':'red'}" id="toggleLockBtn">${locked?'মাস আনলক করুন':'মাস লক করুন'}</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span aria-hidden="true">⬇️</span> ব্যাকআপ / এক্সপোর্ট</h2>
+    <p class="muted">পুরো মেসের ডেটা (সদস্য, সেটিংস, এই মাস) একটা JSON ফাইলে ব্যাকআপ নিতে পারো।</p>
+    <button class="btn ghost small" id="backupBtn">📦 JSON ব্যাকআপ ডাউনলোড করুন</button>
+  </div>
+
+  <div class="card" style="border-left-color:var(--red-dark)">
+    <h2 style="color:var(--red-dark)"><span aria-hidden="true">🚨</span> ডেঞ্জার জোন</h2>
+    <div class="danger-zone">
+      <div class="danger-row">
+        <div class="dtext"><div class="dtitle">সদস্য বাদে এই মাসের সব তথ্য মুছুন</div><div class="dsub">রেন্ট, মিল, বাজার, খরচ সব রিসেট হবে — সদস্য তালিকা থাকবে</div></div>
+        <button class="btn red small" id="resetMonthBtn">এই মাস রিসেট</button>
+      </div>
+      <div class="danger-row">
+        <div class="dtext"><div class="dtitle">পুরো অ্যাপ রিসেট করুন (সব মাস + সদস্য + লগ)</div><div class="dsub">এটা অপরিবর্তনীয় — সব ডেটা চিরতরে মুছে যাবে</div></div>
+        <button class="btn red small" id="resetAllBtn">সব রিসেট</button>
+      </div>
+    </div>
+  </div>`;
+
+  document.getElementById('saveBudgetBtn').onclick = async ()=>{
+    const val = Number(document.getElementById('budgetAlert').value)||0;
+    state.settings.bazarBudgetAlert = val;
+    await sset('settings', state.settings, true);
+    await addLog('বাজার বাজেট সেট', 'বাজেট এলার্ট: '+money(val));
+    showToast('সেভ হয়েছে');
+  };
+
+  document.getElementById('toggleLockBtn').onclick = async ()=>{
+    m.locked = !m.locked;
+    await saveMonth();
+    await addLog('মাস লক পরিবর্তন', monthLabel(state.monthKey)+': '+(m.locked?'লক করা হলো':'আনলক করা হলো'));
+    showToast(m.locked?'মাস লক হয়েছে':'মাস আনলক হয়েছে');
+    renderSettings();
+  };
+
+  document.getElementById('backupBtn').onclick = async ()=>{
+    const backup = {
+      exportedAt: new Date().toISOString(),
+      members: state.members,
+      settings: state.settings,
+      currentMonth: { key: state.monthKey, data: state.monthData }
+    };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'mess-hisab-backup-'+todayStr()+'.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('ব্যাকআপ ডাউনলোড হয়েছে');
+  };
+
+  document.getElementById('resetMonthBtn').onclick = ()=>{
+    openConfirmTypeModal({
+      title: '⚠️ '+monthLabel(state.monthKey)+' এর সব তথ্য রিসেট',
+      body: 'রেন্ট, মিল, বাজার-খরচ, অন্যান্য খরচ — সব মুছে যাবে। সদস্য তালিকা অক্ষত থাকবে। নিশ্চিত হলে নিচে লিখুন: RESET',
+      requiredWord: 'RESET',
+      confirmLabel: 'রিসেট করো',
+      onConfirm: async ()=>{
+        state.monthData = emptyMonth();
+        await saveMonth();
+        await addLog('মাস রিসেট', monthLabel(state.monthKey)+' এর সব ডেটা রিসেট করা হলো');
+        showToast('এই মাসের ডেটা রিসেট হয়েছে');
+        render();
+      }
+    });
+  };
+
+  document.getElementById('resetAllBtn').onclick = ()=>{
+    openConfirmTypeModal({
+      title: '🚨 পুরো অ্যাপ রিসেট',
+      body: 'সব মাস, সব সদস্য, সেটিংস, অডিট লগ — সবকিছু চিরতরে মুছে যাবে। এটা ফেরানো যাবে না। নিশ্চিত হলে নিচে লিখুন: RESET ALL',
+      requiredWord: 'RESET ALL',
+      confirmLabel: 'সব মুছে দাও',
+      onConfirm: async ()=>{
+        await sdel('members', true);
+        await sdel('settings', true);
+        await sdel('auditLog', true);
+        await sdel('mess:'+state.monthKey, true);
+        state.members = [];
+        state.settings = { mealWeights:{sokal:0.5, rat:1}, rentDefault:0, bazarNextIndex:0, bazarCycleDays:3, rentAdmins:[], bazarBudgetAlert:0 };
+        state.currentUser = '';
+        await sset('lastUser', '', false);
+        state.monthData = emptyMonth();
+        buildUserSelect();
+        state.activeTab = 'dashboard';
+        buildNav();
+        render();
+        showToast('পুরো অ্যাপ রিসেট হয়ে গেছে');
+      }
+    });
+  };
+}
+
+function openConfirmTypeModal({title, body, requiredWord, confirmLabel, onConfirm}){
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card danger">
+      <h3>${escapeHtml(title)}</h3>
+      <p class="muted">${escapeHtml(body)}</p>
+      <div class="field"><input id="confirmTypeInp" placeholder="${escapeHtml(requiredWord)}" style="letter-spacing:normal; font-size:15px;"></div>
+      <div class="row">
+        <button class="btn red" id="confirmTypeBtn" disabled>${escapeHtml(confirmLabel)}</button>
+        <button class="btn ghost" id="confirmTypeCancelBtn">বাতিল</button>
+      </div>
+    </div>
+  </div>`;
+  const inp = document.getElementById('confirmTypeInp');
+  const btn = document.getElementById('confirmTypeBtn');
+  inp.oninput = ()=>{ btn.disabled = inp.value.trim() !== requiredWord; };
+  document.getElementById('confirmTypeCancelBtn').onclick = closeModal;
+  btn.onclick = async ()=>{
+    if(inp.value.trim() !== requiredWord) return;
+    closeModal();
+    await onConfirm();
+  };
+  inp.focus();
 }
 
 init();
