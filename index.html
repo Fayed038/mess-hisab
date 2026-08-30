@@ -214,7 +214,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getFirestore, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// ⚠️ এখানে তোমার Firebase প্রজেক্টের কনফিগ বসাও (Firebase Console > Project settings > General > Your apps > SDK setup and configuration)
 const firebaseConfig = {
   apiKey: "AIzaSyBaNpwLnrPL1ihkNwS0mTZmmq3Ke0yqf4c",
   authDomain: "mess-hisab-11.firebaseapp.com",
@@ -272,7 +271,7 @@ async function sdel(key, shared){
 </script>
 <script>
 
-let __undoState = null; // {label, restore: async fn}
+let __undoState = null;
 function showToast(msg, undo){
   const t=document.getElementById('toast');
   t.innerHTML = '';
@@ -886,6 +885,16 @@ function isRentPaid(memberId, monthData){
   return !!(r && r.paid);
 }
 
+// ✅ FIX: getTodayBazarDuty helper function
+function getTodayBazarDuty(){
+  const m = state.monthData;
+  const today = new Date();
+  const da = today.getDate();
+  const assn = m.bazarRotation.assignments.find(a=> da>=a.startDay && da<=a.endDay);
+  if(assn){ const mem = state.members.find(x=>x.id===assn.memberId); if(mem) return mem.name; }
+  return '—';
+}
+
 /* ---------------- DASHBOARD ---------------- */
 function renderDashboard(){
   const m = state.monthData;
@@ -896,13 +905,8 @@ function renderDashboard(){
   const paidCount = state.members.filter(mem=>isRentPaid(mem.id,m)).length;
   const unpaid = state.members.filter(mem=>!isRentPaid(mem.id,m));
 
-  const [y,mo,da] = todayStr().split('-').map(Number);
-  const isCurrentMonth = state.monthKey===currentMonthKey();
-  let onDutyName='—';
-  if(isCurrentMonth){
-    const assn = m.bazarRotation.assignments.find(a=> da>=a.startDay && da<=a.endDay);
-    if(assn){ const mem = state.members.find(x=>x.id===assn.memberId); if(mem) onDutyName = mem.name; }
-  }
+  // ✅ FIX: Always use getTodayBazarDuty, not conditional check
+  const onDutyName = getTodayBazarDuty();
 
   const budget = Number(state.settings.bazarBudgetAlert||0);
   const budgetWarn = budget>0 && tBazar >= budget*0.8;
@@ -1262,7 +1266,7 @@ function renderMeals(){
   }
 }
 
-/* ---------------- BAZAR ---------------- */
+/* ================== BAZAR - COMPLETELY FIXED VERSION ================== */
 function renderBazar(){
   const m = state.monthData;
   const dim = daysInMonth(state.monthKey);
@@ -1318,6 +1322,8 @@ function renderBazar(){
   </div>`;
 
   if(locked) return;
+  
+  // ✅ FIX: genRotationBtn - full render() instead of just renderBazar()
   document.getElementById('genRotationBtn').onclick = async ()=>{
     if(state.members.length===0){ showToast('সদস্য নেই'); return; }
     const cycleDays = Number(document.getElementById('cycleDays').value)||3;
@@ -1333,8 +1339,10 @@ function renderBazar(){
     await sset('settings', state.settings, true);
     await saveMonth();
     await addLog('বাজার রোটেশন তৈরি', monthLabel(state.monthKey)+' এর জন্য নতুন পালা তৈরি হয়েছে');
-    renderBazar();
+    showToast('পালা তৈরি হয়েছে ✅');
+    render(); // ✅ FULL RENDER - এটাই মূল FIX
   };
+
   document.querySelectorAll('[data-editassn]').forEach(btn=>{
     btn.onclick = async ()=>{
       const i = Number(btn.dataset.editassn);
@@ -1554,7 +1562,7 @@ async function renderLog(){
   searchInp.oninput = (e)=>{ state.logFilter = e.target.value; renderList(); };
 }
 
-/* ---------------- SETTINGS (Fayed only) ---------------- */
+/* ================== SETTINGS (Fayed only) ================== */
 function renderSettings(){
   if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
   const m = state.monthData;
