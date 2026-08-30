@@ -1278,18 +1278,28 @@ function renderBazar(){
   ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
   ${budget>0 && tBazarNow>=budget*0.8 ? `<div class="banner-warn">⚠️ বাজার খরচ বাজেটের ${Math.round(tBazarNow/budget*100)}% (${money(tBazarNow)} / ${money(budget)})</div>` : ''}
   <div class="card">
-    <h2><span aria-hidden="true">🔄</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন)</h2>
-    <div class="row">
-      <div class="field"><label>একজন কত দিন করে বাজার করবে</label><input type="number" id="cycleDays" value="${m.bazarRotation.cycleDays || state.settings.bazarCycleDays}" min="1" max="15" ${locked?'disabled':''}></div>
-      <button class="btn ghost small" id="genRotationBtn" ${locked?'disabled':''}>অটো জেনারেট করুন</button>
+    <h2><span aria-hidden="true">🔄</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন) — নিজে নির্বাচন করো</h2>
+    <p class="muted">প্রতিটি সদস্য নিজের ৩ দিনের বাজার পালা নির্বাচন করতে পারে। সদস্যের নাম ক্লিক করো।</p>
+    ${locked ? `<div style="opacity:0.6">` : ''}
+    <div class="checklist" style="gap:8px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
+      ${state.members.map(mem=>{
+        const assn = m.bazarRotation.assignments.find(a=>a.memberId===mem.id);
+        const dateRange = assn ? `${assn.startDay}–${assn.endDay}` : 'এখনো বাছাই করেনি';
+        return `<button class="btn ghost" data-selectmem="${mem.id}" style="text-align:left; padding:12px; border:2px solid var(--line-strong); white-space:normal; ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
+          <strong>${escapeHtml(mem.name)}</strong><br>
+          <span class="muted" style="font-size:11px">${dateRange}</span>
+        </button>`;
+      }).join('')}
     </div>
-    ${m.bazarRotation.assignments.length===0 ? `<div class="empty-note">এখনো পালা তৈরি হয়নি — অটো জেনারেট করুন অথবা সদস্য যোগ করুন</div>` : `
-    <div class="tablewrap"><table><thead><tr><th>দিন</th><th>দায়িত্বে</th><th></th></tr></thead><tbody>
+    ${locked ? `</div>` : ''}
+    <hr class="divider">
+    ${m.bazarRotation.assignments.length===0 ? `<div class="empty-note">এখনো কেউ পালা বাছাই করেনি</div>` : `
+    <div class="tablewrap"><table><thead><tr><th>সদস্য</th><th>দিন</th><th></th></tr></thead><tbody>
       ${m.bazarRotation.assignments.map((a,i)=>{
         const mem = state.members.find(x=>x.id===a.memberId);
-        return `<tr><td>${a.startDay===a.endDay ? a.startDay : a.startDay+'–'+a.endDay}</td>
-          <td>${mem?escapeHtml(mem.name):'—'}</td>
-          <td>${!locked ? `<button class="btn small ghost" data-editassn="${i}">পরিবর্তন</button>` : ''}</td></tr>`;
+        return `<tr><td><strong>${mem?escapeHtml(mem.name):'—'}</strong></td>
+          <td class="mono">${a.startDay}–${a.endDay}</td>
+          <td>${!locked ? `<button class="btn small ghost" data-delassn="${i}">বাদ দিন</button>` : ''}</td></tr>`;
       }).join('')}
     </tbody></table></div>`}
   </div>
@@ -1323,38 +1333,49 @@ function renderBazar(){
 
   if(locked) return;
   
-  // ✅ FIX: genRotationBtn - full render() instead of just renderBazar()
-  document.getElementById('genRotationBtn').onclick = async ()=>{
-    if(state.members.length===0){ showToast('সদস্য নেই'); return; }
-    const cycleDays = Number(document.getElementById('cycleDays').value)||3;
-    let day=1, idx=state.settings.bazarNextIndex||0;
-    const assignments=[];
-    while(day<=dim){
-      const end = Math.min(day+cycleDays-1, dim);
-      assignments.push({memberId: state.members[idx % state.members.length].id, startDay: day, endDay: end});
-      day = end+1; idx++;
-    }
-    m.bazarRotation = {startIndex: state.settings.bazarNextIndex||0, cycleDays, assignments};
-    state.settings.bazarNextIndex = idx % state.members.length;
-    await sset('settings', state.settings, true);
-    await saveMonth();
-    await addLog('বাজার রোটেশন তৈরি', monthLabel(state.monthKey)+' এর জন্য নতুন পালা তৈরি হয়েছে');
-    showToast('পালা তৈরি হয়েছে ✅');
-    render(); // ✅ FULL RENDER - এটাই মূল FIX
-  };
+  // ✅ FIX: Member selection - opens modal for date range picker
+  document.querySelectorAll('[data-selectmem]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const memberId = btn.dataset.selectmem;
+      const mem = state.members.find(x=>x.id===memberId);
+      const existingAssn = m.bazarRotation.assignments.find(a=>a.memberId===memberId);
+      
+      openDateRangeModal(mem, existingAssn, async (startDay, endDay)=>{
+        // Check for conflicts with other members
+        const conflict = m.bazarRotation.assignments.find(a=>
+          a.memberId!==memberId &&
+          !((endDay < a.startDay) || (startDay > a.endDay))
+        );
+        if(conflict){
+          const conflictMem = state.members.find(x=>x.id===conflict.memberId);
+          showToast(`দিন ${conflict.startDay}–${conflict.endDay} ${conflictMem.name} এর আগে থেকে বুকড়`);
+          return;
+        }
+        
+        if(existingAssn){
+          existingAssn.startDay = startDay;
+          existingAssn.endDay = endDay;
+        } else {
+          m.bazarRotation.assignments.push({memberId, startDay, endDay});
+        }
+        await saveMonth();
+        await addLog('বাজার পালা বাছাই', mem.name+': দিন '+startDay+'–'+endDay);
+        showToast(mem.name+' এর পালা সেভ হয়েছে ✓');
+        renderBazar();
+      });
+    };
+  });
 
-  document.querySelectorAll('[data-editassn]').forEach(btn=>{
+  // ✅ Delete assignment
+  document.querySelectorAll('[data-delassn]').forEach(btn=>{
     btn.onclick = async ()=>{
-      const i = Number(btn.dataset.editassn);
-      const options = state.members.map((mm,idx)=>idx+': '+mm.name).join('\n');
-      const pick = prompt('নতুন দায়িত্বপ্রাপ্ত সদস্যের নাম্বার লিখুন —\n'+options);
-      if(pick===null) return;
-      const idx = Number(pick);
-      if(isNaN(idx) || !state.members[idx]){ showToast('সঠিক নম্বর দিন'); return; }
-      const old = state.members.find(x=>x.id===m.bazarRotation.assignments[i].memberId);
-      m.bazarRotation.assignments[i].memberId = state.members[idx].id;
+      const i = Number(btn.dataset.delassn);
+      const assn = m.bazarRotation.assignments[i];
+      const mem = state.members.find(x=>x.id===assn.memberId);
+      m.bazarRotation.assignments.splice(i, 1);
       await saveMonth();
-      await addLog('বাজার পালা পরিবর্তন', (old?old.name:'—')+' → '+state.members[idx].name);
+      await addLog('বাজার পালা বাদ', mem.name+' এর পালা বাদ দেওয়া হলো');
+      showToast(mem.name+' এর পালা বাদ হয়েছে');
       renderBazar();
     };
   });
@@ -1676,6 +1697,70 @@ function renderSettings(){
       }
     });
   };
+}
+
+function openDateRangeModal(mem, existingAssn, onConfirm){
+  const dim = daysInMonth(state.monthKey);
+  const startVal = existingAssn ? existingAssn.startDay : 1;
+  const endVal = existingAssn ? existingAssn.endDay : Math.min(3, dim);
+  
+  modalRoot().innerHTML = `
+  <div class="modal-backdrop">
+    <div class="modal-card">
+      <h3>📅 ${escapeHtml(mem.name)} — বাজার পালা বাছাই করো</h3>
+      <p class="muted">${monthLabel(state.monthKey)} মাসে নিজের ৩-দিনের বাজার পালা নির্বাচন করো (মাস ${dim} দিনের)</p>
+      <div class="row">
+        <div class="field" style="flex:1"><label>শুরু দিন</label><input type="number" id="startDay" value="${startVal}" min="1" max="${dim}"></div>
+        <div class="field" style="flex:1"><label>শেষ দিন</label><input type="number" id="endDay" value="${endVal}" min="1" max="${dim}"></div>
+      </div>
+      <p id="rangeError" class="muted" style="color:var(--red-dark); display:none; margin-top:0; font-size:12px"></p>
+      <p class="muted" style="margin-top:8px; font-size:12px">নোট: শেষ দিন = শুরু দিন + ২ (মোট ৩ দিন)</p>
+      <div class="row">
+        <button class="btn" id="confirmRangeBtn">এই পালা বাছাই করো</button>
+        <button class="btn ghost" id="cancelRangeBtn">বাতিল</button>
+      </div>
+    </div>
+  </div>`;
+  
+  const startInp = document.getElementById('startDay');
+  const endInp = document.getElementById('endDay');
+  const errMsg = document.getElementById('rangeError');
+  const confirmBtn = document.getElementById('confirmRangeBtn');
+  
+  const validateRange = ()=>{
+    const start = Number(startInp.value);
+    const end = Number(endInp.value);
+    if(isNaN(start) || isNaN(end) || start<1 || end<start){
+      errMsg.textContent = 'সঠিক দিন নির্বাচন করো (শুরু ≤ শেষ)';
+      errMsg.style.display = 'block';
+      confirmBtn.disabled = true;
+      return false;
+    }
+    if(end - start + 1 !== 3){
+      errMsg.textContent = 'মোট ৩ দিন হতে হবে (শেষ - শুরু + ১ = ৩)';
+      errMsg.style.display = 'block';
+      confirmBtn.disabled = true;
+      return false;
+    }
+    errMsg.style.display = 'none';
+    confirmBtn.disabled = false;
+    return true;
+  };
+  
+  startInp.oninput = validateRange;
+  endInp.oninput = validateRange;
+  validateRange();
+  
+  document.getElementById('cancelRangeBtn').onclick = closeModal;
+  confirmBtn.onclick = ()=>{
+    if(!validateRange()) return;
+    const start = Number(startInp.value);
+    const end = Number(endInp.value);
+    closeModal();
+    onConfirm(start, end);
+  };
+  
+  startInp.focus();
 }
 
 function openConfirmTypeModal({title, body, requiredWord, confirmLabel, onConfirm}){
