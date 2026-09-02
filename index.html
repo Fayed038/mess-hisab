@@ -391,7 +391,7 @@ const state = {
 };
 
 function emptyMonth(){
-  return { rent:{}, meals:{}, bazarPurchases:[], bazarRotation:{startIndex:0, cycleDays:3, assignments:[]}, expenses:[], locked:false };
+  return { rent:{}, meals:{}, bazarPurchases:[], bazarRotation:{startIndex:0, cycleDays:3, assignments:[], active:false, startDay:1}, expenses:[], locked:false };
 }
 function isMonthLocked(){ return !!(state.monthData && state.monthData.locked); }
 function guardLocked(){
@@ -401,7 +401,10 @@ function guardLocked(){
 
 async function loadMonth(mk){
   const d = await sget('mess:'+mk, true, null);
-  return d ? Object.assign(emptyMonth(), d) : emptyMonth();
+  if(!d) return emptyMonth();
+  const merged = Object.assign(emptyMonth(), d);
+  merged.bazarRotation = Object.assign(emptyMonth().bazarRotation, d.bazarRotation||{});
+  return merged;
 }
 async function saveMonth(){
   await sset('mess:'+state.monthKey, state.monthData, true);
@@ -748,6 +751,8 @@ function currentUserName(){
   return m ? m.name : (state.currentUser || 'অজানা');
 }
 function isFayedUser(){ return currentUserName()==='Fayed'; }
+function isObaidulUser(){ return currentUserName()==='Obaidul'; }
+function isPrivilegedUser(){ return isFayedUser() || isObaidulUser(); }
 
 const TABS = [
   ['dashboard','ড্যাশবোর্ড','🏠'],
@@ -762,9 +767,10 @@ const TABS = [
 ];
 function buildNav(){
   const nav=document.getElementById('tabNav');
-  const tabs = TABS.filter(([id])=> (id!=='log' && id!=='settings') || isFayedUser());
+  const OPEN_TABS = ['dashboard','meals','bazar'];
+  const tabs = TABS.filter(([id])=> isPrivilegedUser() || OPEN_TABS.includes(id));
   nav.innerHTML = tabs.map(([id,label,emoji])=>`<button data-tab="${id}" class="${state.activeTab===id?'active':''}"><span aria-hidden="true">${emoji}</span> ${label}</button>`).join('');
-  if((state.activeTab==='log' || state.activeTab==='settings') && !isFayedUser()) state.activeTab='dashboard';
+  if(!OPEN_TABS.includes(state.activeTab) && !isPrivilegedUser()) state.activeTab='dashboard';
   nav.querySelectorAll('button').forEach(b=>{
     b.onclick = ()=>{ state.activeTab=b.dataset.tab; buildNav(); render(); };
   });
@@ -812,6 +818,8 @@ function exportMonthlyReportCsv(){
 
 /* ---------------- render dispatcher ---------------- */
 function render(){
+  const OPEN_TABS = ['dashboard','meals','bazar'];
+  if(!OPEN_TABS.includes(state.activeTab) && !isPrivilegedUser()) state.activeTab = 'dashboard';
   const map = {
     dashboard: renderDashboard,
     members: renderMembers,
@@ -968,7 +976,7 @@ function renderMembers(){
         state.members.map(m=>`
         <div class="memberchip">
           <div style="display:flex; align-items:center; gap:8px; flex:1; flex-wrap:wrap;">
-            <strong>${escapeHtml(m.name)}</strong>
+            <input type="text" class="mono" data-editname="${m.id}" value="${escapeHtml(m.name)}" placeholder="নাম" ${(m.name==='Fayed'||m.name==='Obaidul')?'disabled title="অ্যাডমিন/ম্যানেজারের নাম পরিবর্তনযোগ্য নয়"':''} style="max-width:150px; font-size:13px; padding:4px 8px; font-weight:600;">
             <input type="tel" class="mono" data-editphone="${m.id}" value="${escapeHtml(m.phone||'')}" placeholder="01XXXXXXXXX" style="max-width:150px; font-size:12.5px; padding:4px 8px;">
           </div>
           <button class="icon-btn" data-del="${m.id}" title="মুছুন">✕</button>
@@ -994,6 +1002,22 @@ function renderMembers(){
     renderMembers();
     showToast('যোগ হয়েছে');
   };
+  document.getElementById('memberList').querySelectorAll('[data-editname]').forEach(inp=>{
+    inp.onchange = async ()=>{
+      const id = inp.dataset.editname;
+      const mem = state.members.find(x=>x.id===id);
+      const old = mem.name;
+      const val = inp.value.trim();
+      if(!val){ showToast('নাম খালি রাখা যাবে না'); inp.value = old; return; }
+      if(old===val) return;
+      if(state.members.some(x=>x.id!==id && x.name.toLowerCase()===val.toLowerCase())){ showToast('এই নামে একজন সদস্য আগে থেকেই আছে'); inp.value = old; return; }
+      mem.name = val;
+      await sset('members', state.members, true);
+      await addLog('সদস্যের নাম পরিবর্তন', old+' → '+val);
+      buildUserSelect();
+      showToast('নাম আপডেট হয়েছে');
+    };
+  });
   document.getElementById('memberList').querySelectorAll('[data-editphone]').forEach(inp=>{
     inp.onchange = async ()=>{
       const id = inp.dataset.editphone;
@@ -1267,6 +1291,16 @@ function renderMeals(){
 }
 
 /* ================== BAZAR - COMPLETELY FIXED VERSION ================== */
+function bazarSlots(m){
+  const rot = m.bazarRotation;
+  if(!rot || !rot.active) return [];
+  return state.members.map((mem,i)=>{
+    const start = rot.startDay + i*rot.cycleDays;
+    const end = start + rot.cycleDays - 1;
+    return {start, end};
+  });
+}
+
 function renderBazar(){
   const m = state.monthData;
   const dim = daysInMonth(state.monthKey);
@@ -1278,30 +1312,34 @@ function renderBazar(){
   ${locked ? `<div class="banner-warn">🔒 এই মাস লক করা আছে — এডিট বন্ধ</div>` : ''}
   ${budget>0 && tBazarNow>=budget*0.8 ? `<div class="banner-warn">⚠️ বাজার খরচ বাজেটের ${Math.round(tBazarNow/budget*100)}% (${money(tBazarNow)} / ${money(budget)})</div>` : ''}
   <div class="card">
-    <h2><span aria-hidden="true">🔄</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন) — নিজে নির্বাচন করো</h2>
-    <p class="muted">প্রতিটি সদস্য নিজের ৩ দিনের বাজার পালা নির্বাচন করতে পারে। সদস্যের নাম ক্লিক করো।</p>
-    ${locked ? `<div style="opacity:0.6">` : ''}
-    <div class="checklist" style="gap:8px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
-      ${state.members.map(mem=>{
-        const assn = m.bazarRotation.assignments.find(a=>a.memberId===mem.id);
-        const dateRange = assn ? `${assn.startDay}–${assn.endDay}` : 'এখনো বাছাই করেনি';
-        return `<button class="btn ghost" data-selectmem="${mem.id}" style="text-align:left; padding:12px; border:2px solid var(--line-strong); white-space:normal; ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
-          <strong>${escapeHtml(mem.name)}</strong><br>
-          <span class="muted" style="font-size:11px">${dateRange}</span>
-        </button>`;
-      }).join('')}
-    </div>
-    ${locked ? `</div>` : ''}
-    <hr class="divider">
-    ${m.bazarRotation.assignments.length===0 ? `<div class="empty-note">এখনো কেউ পালা বাছাই করেনি</div>` : `
-    <div class="tablewrap"><table><thead><tr><th>সদস্য</th><th>দিন</th><th></th></tr></thead><tbody>
-      ${m.bazarRotation.assignments.map((a,i)=>{
-        const mem = state.members.find(x=>x.id===a.memberId);
-        return `<tr><td><strong>${mem?escapeHtml(mem.name):'—'}</strong></td>
-          <td class="mono">${a.startDay}–${a.endDay}</td>
-          <td>${!locked ? `<button class="btn small ghost" data-delassn="${i}">বাদ দিন</button>` : ''}</td></tr>`;
-      }).join('')}
-    </tbody></table></div>`}
+    <h2><span aria-hidden="true">🔄</span> <span class="eyebrow">${monthLabel(state.monthKey)}</span>বাজারের পালা (রোটেশন)</h2>
+    ${!m.bazarRotation.active ? `
+      ${isPrivilegedUser() ? `
+        <p class="muted">প্রথমে একটা শুরুর তারিখ ও প্রতি পালার দৈর্ঘ্য (দিন) সেট করো — সবার জন্য সিরিয়ালি রেঞ্জ বসে যাবে।</p>
+        ${!locked ? `
+        <div class="row">
+          <div class="field"><label>শুরুর দিন</label><input type="number" id="rotStartDay" value="1" min="1" max="${dim}"></div>
+          <div class="field"><label>প্রতি পালার দৈর্ঘ্য (দিন)</label><input type="number" id="rotCycleDays" value="3" min="1" max="${dim}"></div>
+          <button class="btn" id="startRotationBtn">রোটেশন শুরু করো</button>
+        </div>` : ''}
+      ` : `<div class="empty-note">এখনো রোটেশন শুরু হয়নি — অ্যাডমিন/ম্যানেজার শুরু করবে।</div>`}
+    ` : `
+      <p class="muted">নিজের পালার তারিখে ট্যাপ করে বাছাই করো। খালি ঘর মানে ফাঁকা, রঙিন ঘর মানে বুকড়।</p>
+      ${locked ? `<div style="opacity:0.6">` : ''}
+      <div class="checklist" style="gap:8px; display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));">
+        ${bazarSlots(m).map((slot,i)=>{
+          const assn = m.bazarRotation.assignments.find(a=>a.startDay===slot.start && a.endDay===slot.end);
+          const mem = assn ? state.members.find(x=>x.id===assn.memberId) : null;
+          const isMine = mem && mem.id===state.currentUser;
+          return `<button class="btn ${mem?'ghost':''}" data-slot="${i}" style="text-align:left; padding:12px; border:2px solid ${mem?(isMine?'#7c3aed':'var(--line-strong)'):'var(--line-strong)'}; white-space:normal; background:${mem?(isMine?'rgba(124,58,237,0.08)':'rgba(0,0,0,0.03)'):'transparent'}; ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
+            <span class="mono" style="font-size:12px">দিন ${slot.start}–${slot.end}</span><br>
+            <strong style="font-size:13px">${mem?escapeHtml(mem.name):'ফাঁকা — ট্যাপ করে নাও'}</strong>
+          </button>`;
+        }).join('')}
+      </div>
+      ${locked ? `</div>` : ''}
+      ${(isPrivilegedUser() && !locked) ? `<hr class="divider"><button class="btn ghost small" id="resetRotationBtn">🗑️ রোটেশন রিসেট করো (নতুন করে শুরু করার জন্য)</button>` : ''}
+    `}
   </div>
 
   <div class="card">
@@ -1332,53 +1370,96 @@ function renderBazar(){
   </div>`;
 
   if(locked) return;
-  
-  // ✅ FIX: Member selection - opens modal for date range picker
-  document.querySelectorAll('[data-selectmem]').forEach(btn=>{
-    btn.onclick = ()=>{
-      const memberId = btn.dataset.selectmem;
-      const mem = state.members.find(x=>x.id===memberId);
-      const existingAssn = m.bazarRotation.assignments.find(a=>a.memberId===memberId);
-      
-      openDateRangeModal(mem, existingAssn, async (startDay, endDay)=>{
-        // Check for conflicts with other members
-        const conflict = m.bazarRotation.assignments.find(a=>
-          a.memberId!==memberId &&
-          !((endDay < a.startDay) || (startDay > a.endDay))
-        );
-        if(conflict){
-          const conflictMem = state.members.find(x=>x.id===conflict.memberId);
-          showToast(`দিন ${conflict.startDay}–${conflict.endDay} ${conflictMem.name} এর আগে থেকে বুকড়`);
-          return;
+
+  // ✅ Start rotation (admin/manager only)
+  const startRotBtn = document.getElementById('startRotationBtn');
+  if(startRotBtn){
+    startRotBtn.onclick = async ()=>{
+      const startDay = Number(document.getElementById('rotStartDay').value)||1;
+      const cycleDays = Number(document.getElementById('rotCycleDays').value)||3;
+      if(startDay<1 || cycleDays<1){ showToast('সঠিক মান দাও'); return; }
+      m.bazarRotation.active = true;
+      m.bazarRotation.startDay = startDay;
+      m.bazarRotation.cycleDays = cycleDays;
+      m.bazarRotation.assignments = [];
+      await saveMonth();
+      await addLog('বাজার রোটেশন শুরু', 'শুরুর দিন '+startDay+', পালা '+cycleDays+' দিন করে');
+      showToast('রোটেশন শুরু হয়েছে ✓');
+      renderBazar();
+    };
+  }
+
+  // ✅ Reset rotation (admin/manager only)
+  const resetRotBtn = document.getElementById('resetRotationBtn');
+  if(resetRotBtn){
+    resetRotBtn.onclick = ()=>{
+      openConfirmTypeModal({
+        title: '🗑️ রোটেশন রিসেট করবে?',
+        body: 'এই মাসের সব বাজার পালা বাছাই মুছে যাবে (বাজারের খরচের হিসাব অক্ষত থাকবে)। নিশ্চিত হতে RESET লিখো।',
+        requiredWord: 'RESET',
+        confirmLabel: 'রিসেট করো',
+        onConfirm: async ()=>{
+          m.bazarRotation.active = false;
+          m.bazarRotation.assignments = [];
+          await saveMonth();
+          await addLog('বাজার রোটেশন রিসেট', 'রোটেশন রিসেট করা হয়েছে');
+          showToast('রোটেশন রিসেট হয়েছে');
+          renderBazar();
         }
-        
-        if(existingAssn){
-          existingAssn.startDay = startDay;
-          existingAssn.endDay = endDay;
-        } else {
-          m.bazarRotation.assignments.push({memberId, startDay, endDay});
-        }
-        await saveMonth();
-        await addLog('বাজার পালা বাছাই', mem.name+': দিন '+startDay+'–'+endDay);
-        showToast(mem.name+' এর পালা সেভ হয়েছে ✓');
-        renderBazar();
       });
     };
-  });
+  }
 
-  // ✅ Delete assignment
-  document.querySelectorAll('[data-delassn]').forEach(btn=>{
+  // ✅ Slot click — claim / cancel / (admin) reassign
+  document.querySelectorAll('[data-slot]').forEach(btn=>{
     btn.onclick = async ()=>{
-      const i = Number(btn.dataset.delassn);
-      const assn = m.bazarRotation.assignments[i];
-      const mem = state.members.find(x=>x.id===assn.memberId);
-      m.bazarRotation.assignments.splice(i, 1);
+      const slots = bazarSlots(m);
+      const slot = slots[Number(btn.dataset.slot)];
+      const assn = m.bazarRotation.assignments.find(a=>a.startDay===slot.start && a.endDay===slot.end);
+      const occupant = assn ? state.members.find(x=>x.id===assn.memberId) : null;
+
+      if(isPrivilegedUser()){
+        openBazarSlotAdminModal(slot, occupant, async (newMemberId)=>{
+          m.bazarRotation.assignments = m.bazarRotation.assignments.filter(a=>!(a.startDay===slot.start && a.endDay===slot.end));
+          if(newMemberId){
+            m.bazarRotation.assignments = m.bazarRotation.assignments.filter(a=>a.memberId!==newMemberId);
+            m.bazarRotation.assignments.push({memberId:newMemberId, startDay:slot.start, endDay:slot.end});
+          }
+          await saveMonth();
+          const newMem = newMemberId ? state.members.find(x=>x.id===newMemberId) : null;
+          await addLog('বাজার পালা পরিবর্তন (অ্যাডমিন)', 'দিন '+slot.start+'–'+slot.end+' → '+(newMem?newMem.name:'ফাঁকা'));
+          showToast('আপডেট হয়েছে ✓');
+          renderBazar();
+        });
+        return;
+      }
+
+      // Regular member
+      if(occupant && occupant.id===state.currentUser){
+        // own slot — offer cancel
+        m.bazarRotation.assignments = m.bazarRotation.assignments.filter(a=>!(a.startDay===slot.start && a.endDay===slot.end));
+        await saveMonth();
+        await addLog('বাজার পালা বাতিল', occupant.name+' নিজের দিন '+slot.start+'–'+slot.end+' বাতিল করলো');
+        showToast('তোমার পালা বাতিল হয়েছে');
+        renderBazar();
+        return;
+      }
+      if(occupant){
+        showToast(occupant.name+' এই দিনগুলোতে আগে থেকেই আছে');
+        return;
+      }
+      // empty slot — claim it (move if already had one)
+      const mine = state.members.find(x=>x.id===state.currentUser);
+      if(!mine){ showToast('তোমাকে চেনা যাচ্ছে না, ওপরে নিজের নাম সিলেক্ট করো'); return; }
+      m.bazarRotation.assignments = m.bazarRotation.assignments.filter(a=>a.memberId!==state.currentUser);
+      m.bazarRotation.assignments.push({memberId:state.currentUser, startDay:slot.start, endDay:slot.end});
       await saveMonth();
-      await addLog('বাজার পালা বাদ', mem.name+' এর পালা বাদ দেওয়া হলো');
-      showToast(mem.name+' এর পালা বাদ হয়েছে');
+      await addLog('বাজার পালা বাছাই', mine.name+': দিন '+slot.start+'–'+slot.end);
+      showToast('তোমার পালা সেভ হয়েছে ✓');
       renderBazar();
     };
   });
+
   const addBtn = document.getElementById('addBazarBtn');
   if(addBtn){
     const bzMemberSel = document.getElementById('bzMember');
@@ -1559,7 +1640,7 @@ function renderReport(){
 
 /* ---------------- LOG ---------------- */
 async function renderLog(){
-  if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
+  if(!isPrivilegedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
   document.getElementById('mainArea').innerHTML = `
   <div class="card">
     <h2><span aria-hidden="true">📜</span> <span class="eyebrow">অডিট লগ</span>সব পরিবর্তনের ইতিহাস</h2>
@@ -1585,7 +1666,7 @@ async function renderLog(){
 
 /* ================== SETTINGS (Fayed only) ================== */
 function renderSettings(){
-  if(!isFayedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
+  if(!isPrivilegedUser()){ state.activeTab='dashboard'; buildNav(); renderDashboard(); return; }
   const m = state.monthData;
   const locked = isMonthLocked();
   document.getElementById('mainArea').innerHTML = `
@@ -1699,68 +1780,30 @@ function renderSettings(){
   };
 }
 
-function openDateRangeModal(mem, existingAssn, onConfirm){
-  const dim = daysInMonth(state.monthKey);
-  const startVal = existingAssn ? existingAssn.startDay : 1;
-  const endVal = existingAssn ? existingAssn.endDay : Math.min(3, dim);
-  
+function openBazarSlotAdminModal(slot, occupant, onConfirm){
   modalRoot().innerHTML = `
   <div class="modal-backdrop">
     <div class="modal-card">
-      <h3>📅 ${escapeHtml(mem.name)} — বাজার পালা বাছাই করো</h3>
-      <p class="muted">${monthLabel(state.monthKey)} মাসে নিজের ৩-দিনের বাজার পালা নির্বাচন করো (মাস ${dim} দিনের)</p>
-      <div class="row">
-        <div class="field" style="flex:1"><label>শুরু দিন</label><input type="number" id="startDay" value="${startVal}" min="1" max="${dim}"></div>
-        <div class="field" style="flex:1"><label>শেষ দিন</label><input type="number" id="endDay" value="${endVal}" min="1" max="${dim}"></div>
+      <h3>📅 দিন ${slot.start}–${slot.end} — কে বাজার করবে?</h3>
+      <div class="field">
+        <select id="slotMemberSel">
+          <option value="">— ফাঁকা রাখো —</option>
+          ${state.members.map(mm=>`<option value="${mm.id}" ${occupant&&occupant.id===mm.id?'selected':''}>${escapeHtml(mm.name)}</option>`).join('')}
+        </select>
       </div>
-      <p id="rangeError" class="muted" style="color:var(--red-dark); display:none; margin-top:0; font-size:12px"></p>
-      <p class="muted" style="margin-top:8px; font-size:12px">নোট: শেষ দিন = শুরু দিন + ২ (মোট ৩ দিন)</p>
+      <p class="muted" style="font-size:12px">নোট: কারো একাধিক পালা রাখা যাবে না — অন্য কোনো পালায় থাকলে সেখান থেকে সরিয়ে এখানে বসানো হবে।</p>
       <div class="row">
-        <button class="btn" id="confirmRangeBtn">এই পালা বাছাই করো</button>
-        <button class="btn ghost" id="cancelRangeBtn">বাতিল</button>
+        <button class="btn" id="confirmSlotBtn">সেভ করো</button>
+        <button class="btn ghost" id="cancelSlotBtn">বাতিল</button>
       </div>
     </div>
   </div>`;
-  
-  const startInp = document.getElementById('startDay');
-  const endInp = document.getElementById('endDay');
-  const errMsg = document.getElementById('rangeError');
-  const confirmBtn = document.getElementById('confirmRangeBtn');
-  
-  const validateRange = ()=>{
-    const start = Number(startInp.value);
-    const end = Number(endInp.value);
-    if(isNaN(start) || isNaN(end) || start<1 || end<start){
-      errMsg.textContent = 'সঠিক দিন নির্বাচন করো (শুরু ≤ শেষ)';
-      errMsg.style.display = 'block';
-      confirmBtn.disabled = true;
-      return false;
-    }
-    if(end - start + 1 !== 3){
-      errMsg.textContent = 'মোট ৩ দিন হতে হবে (শেষ - শুরু + ১ = ৩)';
-      errMsg.style.display = 'block';
-      confirmBtn.disabled = true;
-      return false;
-    }
-    errMsg.style.display = 'none';
-    confirmBtn.disabled = false;
-    return true;
-  };
-  
-  startInp.oninput = validateRange;
-  endInp.oninput = validateRange;
-  validateRange();
-  
-  document.getElementById('cancelRangeBtn').onclick = closeModal;
-  confirmBtn.onclick = ()=>{
-    if(!validateRange()) return;
-    const start = Number(startInp.value);
-    const end = Number(endInp.value);
+  document.getElementById('cancelSlotBtn').onclick = closeModal;
+  document.getElementById('confirmSlotBtn').onclick = ()=>{
+    const val = document.getElementById('slotMemberSel').value;
     closeModal();
-    onConfirm(start, end);
+    onConfirm(val || null);
   };
-  
-  startInp.focus();
 }
 
 function openConfirmTypeModal({title, body, requiredWord, confirmLabel, onConfirm}){
