@@ -539,25 +539,10 @@ async function seedInitialData(){
   await addLog('বাজার রোটেশন (পোল থেকে)', 'আগস্ট ২০২৬ এর পালা হোয়াটসঅ্যাপ পোল থেকে সেভ করা হলো। ১-৩ ও ৩১ তারিখ এখনো ঠিক করা হয়নি।');
 }
 
-async function cleanupMemberNames(){
-  const members = await sget('members', true, []);
-  if(!members.length) return;
-  const cleanMap = [
-    ['maruf', 'Maruf'],['fayed', 'Fayed'],['adil', 'Adil Ahmed'],['muhir', 'Muhir'],
-    ['ahad', 'Ahad'],['dip', 'Dip'],['dhon', 'Dhonjoy'],['touhid', 'Touhid'],['shapon', 'Shapon']
-  ];
-  let changed = false;
-  const updated = members.map(m=>{
-    const lower = (m.name||'').toLowerCase();
-    const hit = cleanMap.find(([key])=> lower.includes(key));
-    if(hit && m.name !== hit[1]){ changed = true; return Object.assign({}, m, { name: hit[1] }); }
-    return m;
-  });
-  if(changed){
-    await sset('members', updated, true);
-    await addLog('মেম্বার নাম পরিষ্কার করা হলো', 'পুরনো লম্বা নাম (Vai/Bhai/বিভাগ তথ্যসহ) বদলে ছোট ক্লিন নাম বসানো হলো।');
-  }
-}
+/* NOTE: one-time member-name cleanup migration removed on 2026-09-03 —
+   it was force-resetting any member whose name contained "maruf" (or similar)
+   back to a short hardcoded name on every app load, which fought against
+   manual name edits (e.g. "Maruf Hasan" kept reverting to "Maruf"). */
 
 function waitForFirebase(){
   return new Promise(resolve=>{
@@ -579,7 +564,6 @@ async function ensureFayedAdmin(){
 async function init(){
   await waitForFirebase();
   await seedInitialData();
-  await cleanupMemberNames();
   state.members = await sget('members', true, []);
   state.settings = Object.assign(state.settings, await sget('settings', true, {}));
   await ensureFayedAdmin();
@@ -1301,6 +1285,40 @@ function bazarSlots(m){
   });
 }
 
+/* Resolves a rotation "day number" (which can exceed the current month's
+   length, e.g. day 33 in a 30-day month) into a real calendar date,
+   rolling over into the following month(s). */
+function resolveRotationDay(monthKey, dayNum){
+  let [yy,mm] = monthKey.split('-').map(Number);
+  let d = dayNum;
+  let dim = daysInMonth(yy+'-'+String(mm).padStart(2,'0'));
+  while(d > dim){
+    d -= dim;
+    mm++;
+    if(mm>12){ mm=1; yy++; }
+    dim = daysInMonth(yy+'-'+String(mm).padStart(2,'0'));
+  }
+  return { y:yy, mo:mm, d };
+}
+function shortMonthLabel(mo){
+  const namesBn=['জানু','ফেব্রু','মার্চ','এপ্রিল','মে','জুন','জুলাই','আগস্ট','সেপ্ট','অক্টো','নভে','ডিসে'];
+  const namesEn=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const names = (state.lang==='en') ? namesEn : namesBn;
+  return names[mo-1];
+}
+/* Human label for a slot's day range, e.g. "৩–৫" within-month,
+   or "৩০ সেপ্ট – ২ অক্টো" when it crosses into the next month. */
+function slotRangeLabel(monthKey, startDay, endDay){
+  const s = resolveRotationDay(monthKey, startDay);
+  const e = resolveRotationDay(monthKey, endDay);
+  if(s.mo===e.mo && s.y===e.y){
+    return (s.mo === Number(monthKey.split('-')[1]) && s.y===Number(monthKey.split('-')[0]))
+      ? `${s.d}–${e.d}`
+      : `${s.d}–${e.d} ${shortMonthLabel(s.mo)}`;
+  }
+  return `${s.d} ${shortMonthLabel(s.mo)} – ${e.d} ${shortMonthLabel(e.mo)}`;
+}
+
 function renderBazar(){
   const m = state.monthData;
   const dim = daysInMonth(state.monthKey);
@@ -1332,7 +1350,7 @@ function renderBazar(){
           const mem = assn ? state.members.find(x=>x.id===assn.memberId) : null;
           const isMine = mem && mem.id===state.currentUser;
           return `<button class="btn ghost" data-slot="${i}" style="text-align:left; padding:12px; border:2px solid ${mem?(isMine?'#7c3aed':'var(--line-strong)'):'var(--line-strong)'}; white-space:normal; background:${mem?(isMine?'rgba(124,58,237,0.08)':'rgba(0,0,0,0.03)'):'transparent'}; color:var(--ink); ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
-            <span class="mono" style="font-size:12px; opacity:0.75;">দিন ${slot.start}–${slot.end}</span><br>
+            <span class="mono" style="font-size:12px; opacity:0.75;">দিন ${slotRangeLabel(state.monthKey, slot.start, slot.end)}</span><br>
             <strong style="font-size:13px;">${mem?escapeHtml(mem.name):'ফাঁকা — ট্যাপ করে নাও'}</strong>
           </button>`;
         }).join('')}
@@ -1784,7 +1802,7 @@ function openBazarSlotAdminModal(slot, occupant, onConfirm){
   modalRoot().innerHTML = `
   <div class="modal-backdrop">
     <div class="modal-card">
-      <h3>📅 দিন ${slot.start}–${slot.end} — কে বাজার করবে?</h3>
+      <h3>📅 দিন ${slotRangeLabel(state.monthKey, slot.start, slot.end)} — কে বাজার করবে?</h3>
       <div class="field">
         <select id="slotMemberSel">
           <option value="">— ফাঁকা রাখো —</option>
