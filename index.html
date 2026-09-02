@@ -1331,9 +1331,9 @@ function renderBazar(){
           const assn = m.bazarRotation.assignments.find(a=>a.startDay===slot.start && a.endDay===slot.end);
           const mem = assn ? state.members.find(x=>x.id===assn.memberId) : null;
           const isMine = mem && mem.id===state.currentUser;
-          return `<button class="btn ${mem?'ghost':''}" data-slot="${i}" style="text-align:left; padding:12px; border:2px solid ${mem?(isMine?'#7c3aed':'var(--line-strong)'):'var(--line-strong)'}; white-space:normal; background:${mem?(isMine?'rgba(124,58,237,0.08)':'rgba(0,0,0,0.03)'):'transparent'}; ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
-            <span class="mono" style="font-size:12px">দিন ${slot.start}–${slot.end}</span><br>
-            <strong style="font-size:13px">${mem?escapeHtml(mem.name):'ফাঁকা — ট্যাপ করে নাও'}</strong>
+          return `<button class="btn ghost" data-slot="${i}" style="text-align:left; padding:12px; border:2px solid ${mem?(isMine?'#7c3aed':'var(--line-strong)'):'var(--line-strong)'}; white-space:normal; background:${mem?(isMine?'rgba(124,58,237,0.08)':'rgba(0,0,0,0.03)'):'transparent'}; color:var(--ink); ${!locked?'cursor:pointer':''}" ${locked?'disabled':''}>
+            <span class="mono" style="font-size:12px; opacity:0.75;">দিন ${slot.start}–${slot.end}</span><br>
+            <strong style="font-size:13px;">${mem?escapeHtml(mem.name):'ফাঁকা — ট্যাপ করে নাও'}</strong>
           </button>`;
         }).join('')}
       </div>
