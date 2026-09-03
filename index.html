@@ -1856,6 +1856,14 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('sw.js').catch(e=>console.warn('SW register failed', e));
   });
+  // Auto-reload once when a new service worker takes control, so users
+  // always land on the latest deployed version without a manual hard refresh.
+  let swRefreshed = false;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(swRefreshed) return;
+    swRefreshed = true;
+    window.location.reload();
+  });
 }
 </script>
 </body>
